@@ -1,0 +1,43 @@
+# ============================================================
+# Git 忽略清单
+# 最重要的一条：本地配置文件里有 AppSecret / API Key，
+# 绝对不能提交到仓库。application.yml 提交的是"模板"，
+# application-local.yml 才是你填了真实凭证的那份。
+# ============================================================
+
+# ---- 敏感配置（含真实凭证的本机配置）----
+src/main/resources/application-local.yml
+src/main/resources/application-local.yaml
+src/main/resources/application-prod.yml
+*.secret
+
+# ---- 运行期数据 ----
+# data/admin-ids.txt 里是管理员的 openid，属于运行时状态，
+# 每次部署都会各自生成，不该进仓库
+data/
+
+# ---- 构建产物 ----
+target/
+# 本地 Maven 仓库（依赖缓存）。注意它有 1.6 万多个文件，
+# 一旦提交，仓库会瞬间膨胀到几百 MB，而里面每个 jar 网上都能重新下到
+.m2repo/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# ---- IDE ----
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+
+# ---- 操作系统 ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- 日志 ----
+logs/
+*.log

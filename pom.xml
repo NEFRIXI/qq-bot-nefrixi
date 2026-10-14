@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+        ============================================================
+        项目坐标（groupId / artifactId / version 三件套）
+        groupId    : 组织/公司域名的倒写，这里用 mybotweb
+        artifactId : 项目名，打包产物会叫 mybotweb-1.0.0.jar
+        ============================================================
+    -->
+    <groupId>com.mybotweb</groupId>
+    <artifactId>mybotweb</artifactId>
+    <version>1.0.0</version>
+    <name>mybotweb</name>
+    <description>QQ 机器人 + 网站后端（WN）</description>
+
+    <!--
+        parent 继承 Spring Boot 官方父 POM。
+        好处：Spring 全家桶的版本号全部由它统一管理，下面的依赖都不用写 version，
+        避免自己挑版本挑出不兼容的组合。
+    -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.2.12</version>
+        <relativePath/>
+    </parent>
+
+    <properties>
+        <!-- JDK 17：Spring Boot 3.x 的最低要求 -->
+        <java.version>17</java.version>
+        <!-- 统一源码编码，防止中文注释在某些 Windows 环境下变成乱码 -->
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+        <!--
+            显式钉住 Lombok 版本。
+            Spring Boot 3.2.12 默认管理的版本是 1.18.36，
+            但本机 Maven 仓库里已有的是 1.18.34 / 1.18.46。
+            钉一个本地已有的版本，可以让构建在离线状态下也能完成。
+            以后有网络了，删掉这一行就会跟随 Spring Boot 管理的版本。
+        -->
+        <lombok.version>1.18.34</lombok.version>
+    </properties>
+
+    <dependencies>
+
+        <!--
+            spring-boot-starter-web
+            = 内嵌 Tomcat + Spring MVC + Jackson(JSON 序列化) + RestClient(调外部 HTTP 接口)
+            我们的 REST 接口、以及调腾讯 API / Ollama 都靠它。
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!--
+            参数校验（后续写网站 REST 接口时用 @NotBlank / @NotNull 等注解）
+            现在暂时用不上，但先引进来，等写业务接口时直接可用。
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!--
+            Lombok：用注解自动生成 getter/setter/构造器/日志对象，减少样板代码。
+            @Data      → 生成 getter、setter、toString、equals、hashCode
+            @Slf4j     → 生成一个名为 log 的日志对象，直接用 log.info(...)
+            @RequiredArgsConstructor → 为所有 final 字段生成构造器（配合 Spring 构造器注入）
+            注意：它只在编译期生成代码，运行时不依赖它。
+        -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- 测试用：JUnit 5 + Spring Test + Mockito 等一整套 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!--
+                spring-boot-maven-plugin：把项目打成可执行的 fat jar
+                （即 java -jar mybotweb-1.0.0.jar 就能直接启动，不用额外配 classpath）
+                同时提供 mvn spring-boot:run 命令，开发期直接跑。
+            -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <!-- Lombok 只在编译期工作，不需要打进最终 jar -->
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

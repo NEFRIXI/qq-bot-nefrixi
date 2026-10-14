@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WM</title>
+    <style>
+        /* ============================================================
+           欢迎页面 —— 全屏背景 + 樱花飘落 + 入场/离场过渡
+
+           设计要点：
+             · 背景用 Ken Burns 效果（缓慢放大平移），静止的图不会有"死"感
+             · 樱花用纯 CSS 生成，不引任何图片和外部库
+             · 文字靠左放，是为了避开背景图右侧的人物
+             · 点击"进入"时整页做一次过渡动画，而不是生硬跳转
+
+           零外部依赖：没有 CDN、没有字体文件、没有图标库。
+           所有资源都在本地，断网也能正常显示。
+           ============================================================ */
+
+        /* ---------- 基础 ---------- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;           /* 全屏页面，禁止滚动条 */
+            background: #1a1620;        /* 图片加载前的底色，避免白闪 */
+        }
+
+        body {
+            font-family: system-ui, -apple-system, "PingFang SC",
+                         "Microsoft YaHei", "Segoe UI", sans-serif;
+            color: #fff;
+        }
+
+        /* ---------- 舞台 ---------- */
+        .stage {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* ---------- 背景图 ---------- */
+        .bg {
+            position: absolute;
+            inset: 0;
+            background-image: url("/client/images/welcome-bg.jpg");
+            background-size: cover;
+            background-position: center;
+            /* 初始略微放大，给 Ken Burns 动画留出位移空间 */
+            transform: scale(1.05);
+            animation: kenBurns 28s ease-in-out infinite alternate;
+            /* 图片加载完成后淡入，避免"啪"地出现 */
+            opacity: 0;
+            transition: opacity 1.2s ease;
+        }
+
+        .bg.loaded {
+            opacity: 1;
+        }
+
+        /* Ken Burns：极缓慢地放大并轻微平移。
+           时长给到 28 秒是有意的——慢了才像"呼吸"，
+           快了会变成明显的"缩放动画"，很廉价。 */
+        @keyframes kenBurns {
+            from {
+                transform: scale(1.05) translate(0, 0);
+            }
+            to {
+                transform: scale(1.16) translate(-1.5%, -1%);
+            }
+        }
+
+        /* ---------- 压暗层 ---------- */
+        /* 两个渐变叠起来：
+           左边深 → 保证左侧文字清晰
+           底部深 → 让底部内容有依托
+           不做成整体压暗，否则会把画面的通透感压没 */
+        .vignette {
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(100deg,
+                    rgba(20, 12, 25, 0.72) 0%,
+                    rgba(20, 12, 25, 0.42) 32%,
+                    rgba(20, 12, 25, 0.05) 58%,
+                    rgba(20, 12, 25, 0) 75%),
+                linear-gradient(to top,
+                    rgba(20, 12, 25, 0.55) 0%,
+                    rgba(20, 12, 25, 0) 40%);
+            pointer-events: none;
+        }
+
+        /* ---------- 樱花 ---------- */
+        .petals {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;       /* 花瓣不能挡住按钮点击 */
+            overflow: hidden;
+        }
+
+        .petal {
+            position: absolute;
+            top: -8%;
+            /* 花瓣形状：两个对角圆角 = 一片花瓣 */
+            border-radius: 100% 0 100% 0;
+            background: linear-gradient(135deg, #ffd7e8 0%, #ffb3d1 55%, #ff96bd 100%);
+            opacity: 0.85;
+            /* 用 will-change 提示浏览器提前升到合成层，
+               十几片同时飘的时候能明显减少卡顿 */
+            will-change: transform;
+            animation-name: fall;
+            animation-timing-function: linear;
+            animation-iteration-count: infinite;
+        }
+
+        /* 飘落：一边往下一边左右摆动，同时自转，
+           三个变换叠加起来才像花瓣而不是"掉下来的方块" */
+        @keyframes fall {
+            0% {
+                transform: translate3d(0, 0, 0) rotate(0deg);
+                opacity: 0;
+            }
+            8% {
+                opacity: 0.9;
+            }
+            90% {
+                opacity: 0.85;
+            }
+            100% {
+                transform: translate3d(var(--drift, 60px), 115vh, 0) rotate(540deg);
+                opacity: 0;
+            }
+        }
+
+        /* ---------- 内容 ---------- */
+        .content {
+            position: relative;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            /* 靠左留出 8vw：背景图右侧是人物，文字放左边互不干扰 */
+            padding: 0 8vw;
+            max-width: 780px;
+        }
+
+        .title {
+            font-size: clamp(3.4rem, 9vw, 7rem);
+            font-weight: 200;
+            letter-spacing: 0.22em;
+            line-height: 1;
+            /* 纯白 + 粉色外发光，跟画面的樱花呼应 */
+            text-shadow:
+                0 0 22px rgba(255, 168, 205, 0.55),
+                0 0 60px rgba(255, 130, 180, 0.32),
+                0 4px 26px rgba(0, 0, 0, 0.45);
+            opacity: 0;
+            animation: riseIn 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.35s forwards;
+        }
+
+        .divider {
+            width: 92px;
+            height: 1px;
+            margin: 1.6rem 0 1.5rem;
+            background: linear-gradient(90deg,
+                rgba(255, 170, 205, 0.95), rgba(255, 170, 205, 0));
+            opacity: 0;
+            transform-origin: left center;
+            animation: lineGrow 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.6s forwards;
+        }
+
+        .subtitle {
+            font-size: clamp(0.9rem, 1.6vw, 1.05rem);
+            font-weight: 300;
+            letter-spacing: 0.16em;
+            line-height: 1.9;
+            color: rgba(255, 255, 255, 0.86);
+            text-shadow: 0 2px 14px rgba(0, 0, 0, 0.55);
+            opacity: 0;
+            animation: riseIn 1s cubic-bezier(0.22, 1, 0.36, 1) 0.75s forwards;
+        }
+
+        /* ---------- 进入按钮 ---------- */
+        .enter {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 168px;
+            height: 52px;
+            margin-top: 2.8rem;
+            border: 1px solid rgba(255, 255, 255, 0.55);
+            border-radius: 2px;
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(3px);
+            color: #fff;
+            font-size: 0.95rem;
+            font-weight: 300;
+            letter-spacing: 0.42em;
+            text-decoration: none;
+            /* 用 padding 偏移抵消 letter-spacing 造成的视觉不居中 */
+            padding-left: 0.42em;
+            cursor: pointer;
+            overflow: hidden;
+            opacity: 0;
+            animation: riseIn 1s cubic-bezier(0.22, 1, 0.36, 1) 0.95s forwards;
+            transition: border-color 0.4s ease, box-shadow 0.4s ease,
+                        transform 0.4s ease, background-color 0.4s ease;
+        }
+
+        /* 悬停时白光从左侧扫过 */
+        .enter::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -120%;
+            width: 120%;
+            height: 100%;
+            background: linear-gradient(100deg,
+                transparent, rgba(255, 255, 255, 0.28), transparent);
+            transition: left 0.7s ease;
+        }
+
+        .enter:hover::before {
+            left: 120%;
+        }
+
+        .enter:hover {
+            border-color: rgba(255, 178, 212, 0.95);
+            background: rgba(255, 150, 195, 0.14);
+            box-shadow:
+                0 0 22px rgba(255, 150, 195, 0.45),
+                inset 0 0 22px rgba(255, 150, 195, 0.14);
+            transform: translateY(-2px);
+        }
+
+        .enter:active {
+            transform: translateY(0) scale(0.98);
+        }
+
+        /* ---------- 入场动画 ---------- */
+        @keyframes riseIn {
+            from {
+                opacity: 0;
+                transform: translateY(26px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes lineGrow {
+            from {
+                opacity: 0;
+                transform: scaleX(0);
+            }
+            to {
+                opacity: 1;
+                transform: scaleX(1);
+            }
+        }
+
+        /* ---------- 点击"进入"后的离场动画 ---------- */
+        /* 三个层次分别动，做出"镜头推进"的感觉：
+             背景继续放大并轻微失焦
+             文字整体上浮淡出
+             一层白光从中间扩散，把画面盖住 */
+        body.leaving .bg {
+            transition: transform 0.85s cubic-bezier(0.4, 0, 0.6, 1),
+                        filter 0.85s ease;
+            transform: scale(1.3);
+            filter: blur(7px) brightness(1.35);
+        }
+
+        body.leaving .content {
+            transition: opacity 0.5s ease, transform 0.7s cubic-bezier(0.4, 0, 0.6, 1);
+            opacity: 0;
+            transform: translateY(-38px) scale(0.97);
+        }
+
+        body.leaving .petals {
+            transition: opacity 0.6s ease;
+            opacity: 0;
+        }
+
+        .flash {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 50% 50%,
+                rgba(255, 235, 245, 1) 0%,
+                rgba(255, 205, 228, 0.85) 35%,
+                rgba(255, 185, 215, 0) 72%);
+            opacity: 0;
+            transform: scale(0.35);
+            pointer-events: none;
+        }
+
+        body.leaving .flash {
+            transition: opacity 0.75s ease, transform 0.75s cubic-bezier(0.4, 0, 0.6, 1);
+            opacity: 1;
+            transform: scale(2.6);
+        }
+
+        /* ---------- 响应式 ---------- */
+        @media (max-width: 720px) {
+            .content {
+                /* 窄屏时图片两侧会被裁掉，人物可能跑到中间，
+                   所以改成整体居中 + 更强的压暗，保证文字始终可读 */
+                padding: 0 8vw;
+                max-width: none;
+                align-items: center;
+                text-align: center;
+            }
+
+            .vignette {
+                background:
+                    linear-gradient(to bottom,
+                        rgba(20, 12, 25, 0.55) 0%,
+                        rgba(20, 12, 25, 0.35) 45%,
+                        rgba(20, 12, 25, 0.62) 100%);
+            }
+
+            .divider {
+                background: linear-gradient(90deg,
+                    rgba(255, 170, 205, 0), rgba(255, 170, 205, 0.95),
+                    rgba(255, 170, 205, 0));
+            }
+
+            .enter {
+                width: 150px;
+            }
+        }
+
+        /* ---------- 尊重系统的"减少动态效果"设置 ---------- */
+        /* 有些人会因为前庭功能问题对动效不适，系统里开了这个开关。
+           关掉动画不影响功能，只是画面静止。 */
+        @media (prefers-reduced-motion: reduce) {
+            .bg,
+            .petal,
+            .title,
+            .divider,
+            .subtitle,
+            .enter {
+                animation: none !important;
+                opacity: 1;
+                transform: none;
+            }
+
+            .petals {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="stage">
+    <!-- 背景图 -->
+    <div class="bg" id="bg"></div>
+
+    <!-- 压暗层，保证文字可读 -->
+    <div class="vignette"></div>
+
+    <!-- 樱花容器，花瓣由 JS 生成 -->
+    <div class="petals" id="petals"></div>
+
+    <!-- 正文 -->
+    <main class="content">
+        <h1 class="title">夜好眠</h1>
+        <div class="divider"></div>
+
+        <!-- 这里换成你自己的网站定位，一行字就够 -->
+        <p class="subtitle">
+            记录、整理与分享
+        </p>
+
+        <a href="/client/a" class="enter" id="enterBtn">进入</a>
+    </main>
+
+    <!-- 离场时的白光 -->
+    <div class="flash"></div>
+</div>
+
+<script>
+    /* ============================================================
+       1. 背景图加载完成后淡入
+          直接在 CSS 里显示背景图会在加载的瞬间"啪"地出现，
+          先透明、加载完再加 class，观感会柔和很多。
+       ============================================================ */
+    (function initBackground() {
+        const bg = document.getElementById('bg');
+        const img = new Image();
+        img.onload = () => bg.classList.add('loaded');
+        // 图片加载失败也要显示（否则整个页面是黑的），
+        // 这时至少还有渐变底色和文字
+        img.onerror = () => {
+            bg.classList.add('loaded');
+            console.warn('背景图加载失败，请确认文件存在：' +
+                '/client/images/welcome-bg.jpg');
+        };
+        img.src = '/client/images/welcome-bg.jpg';
+
+        // 如果图片已经在缓存里，onload 可能不会触发，补一次
+        if (img.complete) {
+            bg.classList.add('loaded');
+        }
+    })();
+
+    /* ============================================================
+       2. 生成樱花
+          数量、位置、大小、时长都做成随机，避免看出"复读"的规律。
+          但随机是有限的随机（见各处的取值范围），
+          完全放开会让某些花瓣又大又快，很突兀。
+       ============================================================ */
+    (function initPetals() {
+        const container = document.getElementById('petals');
+
+        // 花瓣数量：桌面 16 片。再多就开始吃性能，再少显得空
+        const COUNT = 16;
+
+        for (let i = 0; i < COUNT; i++) {
+            const petal = document.createElement('div');
+            petal.className = 'petal';
+
+            // 大小 7~15px
+            const size = 7 + Math.random() * 8;
+            petal.style.width = size + 'px';
+            petal.style.height = size + 'px';
+
+            // 横向起始位置：0~100%（用 vw 保证和视口宽度对应）
+            petal.style.left = (Math.random() * 100) + 'vw';
+
+            // 每片花瓣的下落时长 9~20 秒，越小的越快（物理上更像花瓣）
+            const duration = 9 + (1 - size / 15) * 6 + Math.random() * 5;
+            petal.style.animationDuration = duration.toFixed(2) + 's';
+
+            // 负延迟：让它们一开始就散落在半空中，
+            // 而不是全部从顶部同时出现（那样第一秒会很假）
+            petal.style.animationDelay = '-' + (Math.random() * duration).toFixed(2) + 's';
+
+            // 左右飘移量，作为 CSS 变量传给 keyframes
+            petal.style.setProperty('--drift', (Math.random() * 150 - 45).toFixed(0) + 'px');
+
+            // 轻微随机透明度，让层次丰富些
+            petal.style.opacity = (0.55 + Math.random() * 0.4).toFixed(2);
+
+            container.appendChild(petal);
+        }
+    })();
+
+    /* ============================================================
+       3. 点击"进入"的过渡
+          不是直接跳转，而是先播放一段离场动画再走。
+          这里的关键是：延迟时间要和 CSS 里 .leaving 的动画时长对得上
+          （CSS 里 flash 是 0.75s、内容淡出 0.5s），
+          取 720ms 是让白光基本铺满时再切页，观感最连贯。
+       ============================================================ */
+    (function initEnterTransition() {
+        const btn = document.getElementById('enterBtn');
+        let navigating = false;     // 防止连点触发两次跳转
+
+        btn.addEventListener('click', function (event) {
+            // 先拦住默认跳转，等动画播完再手动跳
+            event.preventDefault();
+
+            if (navigating) {
+                return;
+            }
+            navigating = true;
+
+            document.body.classList.add('leaving');
+
+            setTimeout(function () {
+                window.location.href = btn.getAttribute('href');
+            }, 720);
+        });
+    })();
+</script>
+
+</body>
+</html>
