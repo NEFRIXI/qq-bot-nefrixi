@@ -24,6 +24,120 @@ spring:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: GMT+8
 
+  # ============================================================
+  # 下面三块（数据源 / Redis / Flyway）都是「博客网站」在用的。
+  # QQ 机器人本身既不碰数据库，也不碰 Redis。
+  #
+  # 【它们的启停都跟着 app.blog.enabled 走】
+  # 博客关掉时，Flyway 不做迁移、数据源不建连接池，
+  # 所以哪怕 MySQL 根本没启动，应用照样能起来跑机器人。
+  # 这条很关键：机器人是主力功能，不能被数据库拖垮。
+  # ============================================================
+
+  # ----------------------------------------------------------
+  # 数据源（MySQL）
+  #
+  # 【为什么值都写成 ${...} 占位符】
+  # 本文件是进 git 的模板，真实账号密码放在另外两个文件里：
+  #   application-local.yml   本机
+  #   application-prod.yml    云端
+  # 那两个文件都被 .gitignore 忽略。本地和云端的库名、账号、
+  # 密码刻意做成完全一致，所以同一套代码不用改就能两地跑。
+  # ----------------------------------------------------------
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+    # 连接串。四个参数缺哪个都可能出问题，逐个说明：
+    #
+    #   useUnicode=true & characterEncoding=utf8
+    #       驱动按 UTF-8 传输，否则中文文章存进去会变问号
+    #
+    #   useSSL=false
+    #       MySQL 8 默认要求加密连接，本地和内网直连没必要，
+    #       关掉可以省去一堆证书告警
+    #
+    #   allowPublicKeyRetrieval=true
+    #       MySQL 8 默认认证插件是 caching_sha2_password。
+    #       不写这个会报 "Public Key Retrieval is not allowed" ——
+    #       这是 Boot 3 + MySQL 8 组合下最常见的连接失败原因
+    #
+    #   serverTimezone=Asia/Shanghai
+    #       显式指定时区。不写的话驱动按操作系统时区去猜，
+    #       而在云服务器（UTC）上会导致时间差 8 小时
+    url: "${DB_URL:jdbc:mysql://127.0.0.1:3306/mybotweb?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai}"
+
+    # 数据库账号和密码。真实密码不写在这里，见上面文件头的说明
+    username: "${DB_USERNAME:mybotweb}"
+    password: "${DB_PASSWORD:}"
+
+    # HikariCP 连接池。为什么是这几个数：
+    #   云服务器只有 3.6G 内存，连接池默认 10 条太浪费，5 条足够
+    #   博客是低频访问，空闲时留 1 条维持连接即可
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      connection-timeout: 10000
+      pool-name: MybotwebHikariPool
+
+  # ----------------------------------------------------------
+  # Redis —— 存点赞数、浏览量、登录 token 黑名单
+  #
+  # 【为什么这几个数不放 MySQL】
+  # 它们会被反复 +1（每来一个访客就加一次），每次都写 MySQL 太浪费。
+  # Redis 一条 INCR 就完事，内存里操作，快几个数量级。
+  #
+  # 【key 的命名规则】就是上面那三行注释里写的：
+  #   article:like_count:{id}      文章点赞数
+  #   article:view_count:{id}      文章浏览量
+  #   admin:token:{jti}            已签发的登录令牌（登出时删掉即失效）
+  #
+  # 本地和云端都是本机 Redis（127.0.0.1），都没设密码。
+  # 两边都只监听 127.0.0.1 —— 这是对的，不要改成 0.0.0.0：
+  # Redis 一旦暴露到公网，几小时内就会被挖矿脚本扫到。
+  # ----------------------------------------------------------
+  data:
+    redis:
+      host: "${REDIS_HOST:127.0.0.1}"
+      port: ${REDIS_PORT:6379}
+      # 本地和云端的 Redis 都没设密码，所以默认空串
+      password: "${REDIS_PASSWORD:}"
+      database: 0
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 4
+          min-idle: 0
+
+  # ----------------------------------------------------------
+  # Flyway 数据库版本管理
+  #
+  # 建表语句不再手工执行，而是写成文件放在
+  #   src/main/resources/db/migration/
+  # 命名规则（两个下划线是分隔符，写成一个会启动报错）：
+  #   V1__create_article.sql
+  #   V2__create_admin_user.sql
+  # V 后面的数字是执行顺序，不能重复，也不能改已经执行过的脚本。
+  #
+  # 【它怎么知道哪些脚本跑过了】
+  # 第一次启动自动建一张 flyway_schema_history 表，
+  # 每执行一个脚本就往里记一行。以后启动只跑没记录过的，
+  # 所以同一个脚本绝不会被执行两次，不用手工维护。
+  #
+  # 【enabled 为什么引用 app.blog.enabled】
+  # Flyway 是在应用启动阶段就去连数据库的。如果这里写死 true，
+  # 那么 MySQL 没启动时整个应用都起不来 —— 连带把 QQ 机器人也拖down。
+  # 机器人是主力功能，必须能独立运行，所以博客关掉时这步一起跳过。
+  # ----------------------------------------------------------
+  flyway:
+    enabled: ${app.blog.enabled:true}
+    locations: classpath:db/migration
+    # 目标库里已经有表、但没有 flyway 记录时，先建个基线再迁移，
+    # 而不是直接报错。本项目从空库开始，按理用不上这个参数；
+    # 留着是为了万一以后手工建过表，不至于卡住。
+    baseline-on-migrate: true
+    baseline-version: 0
+
 # ============================================================
 # 以下是本项目自定义的配置，统一挂在 app 前缀下。
 # 全部由 com.mybotweb.config.AppProperties 读取，不散落在各处用 @Value。
@@ -346,12 +460,148 @@ app:
     # 设成 true 的话，机器人一公开就有"第一个陌生人成为管理员"的风险。
     auto-claim-first-user: false
 
+  # ----------------------------------------------------------
+  # ★ 博客网站
+  #
+  # 【总开关 enabled 怎么用】
+  # 你本机日常跑机器人的时候不希望博客对外服务，就在
+  # application-local.yml 里写 false（那个文件不进 git，只影响你本机）。
+  # 要调试博客功能时，用启动参数临时打开，不要改文件：
+  #   mvn spring-boot:run "-Dspring-boot.run.arguments=--app.blog.enabled=true"
+  #
+  # 关掉之后：/client/main、/client/api/**、/admin/** 一律返回 503，
+  # 数据库和 Redis 也不会被初始化（见上面 spring.flyway 的说明）。
+  # 注意 /client 欢迎页不受影响 —— 它是纯静态页，本地看看无妨。
+  # ----------------------------------------------------------
+  blog:
+
+    # 总开关。模板里默认 true（云端要开），本机配置里覆盖成 false
+    enabled: true
+
+    # --------------------------------------------------------
+    # 初始管理员账号
+    #
+    # 【怎么工作的】
+    # 应用启动时看一眼 admin_user 表，如果是空的，就用下面这组
+    # 账号密码建出第一个管理员 —— 密码会用 BCrypt 哈希后再存，
+    # 数据库里看不到明文。表里已经有账号时，这三项直接被忽略。
+    #
+    # 所以真正用来登录的是"第一次启动时写进数据库的那份"，
+    # 以后改这里不会影响已经建好的账号。
+    # --------------------------------------------------------
+    admin:
+      username: "${BLOG_ADMIN_USERNAME:admin}"
+      nickname: "${BLOG_ADMIN_NICKNAME:站长}"
+
+      # 【没有默认值】留空的话启动时会打一段警告并跳过创建管理员，
+      # 你需要在这里或 application-local.yml 里填一个。
+      # 为什么不给个默认密码：默认密码等于没有密码，而这是后台入口。
+      password: "${BLOG_ADMIN_PASSWORD:}"
+
+    # --------------------------------------------------------
+    # 登录令牌（JWT）
+    # --------------------------------------------------------
+    jwt:
+      # 签名密钥。取不到时会随机生成一个，并打警告。
+      #
+      # 【随机密钥的后果】应用一重启，之前发出去的 token 全部失效，
+      # 得重新登录一次。开发期无所谓，正式部署请固定填一个长随机串。
+      #
+      # 长度至少 32 个字符：HS256 要求密钥不短于摘要长度（256 位 = 32 字节），
+      # 短了会直接抛 WeakKeyException。生成一个：
+      #   openssl rand -base64 48
+      secret: "${BLOG_JWT_SECRET:}"
+
+      # token 有效期（分钟）。默认 7 天 —— 后台是你自己一个人用，
+      # 频繁掉登录很烦。万一 token 泄露，用登出功能可以立刻吊销。
+      expire-minutes: 10080
+
+      # 是否把签发的 token 记到 Redis 里并在登出时删掉。
+      # JWT 本身是无状态的：签出去就收不回来，改了密码旧 token
+      # 照样能用。加了这一层才有"登出"这个动作。
+      revoke-enabled: true
+
+    # --------------------------------------------------------
+    # 文章列表分页
+    # --------------------------------------------------------
+    page:
+      # 前台每页条数。服务器带宽只有 3Mbps，而列表接口不返回正文，
+      # 10 条一页对带宽很友好。
+      size: 10
+
+      # 单页最大条数。防止有人手改 URL 上的 size 参数把服务器拖死
+      max-size: 50
+
+# ============================================================
+# MyBatis-Plus（数据库访问框架）
+# ============================================================
+mybatis-plus:
+  configuration:
+    # 数据库字段是下划线风格（created_at），Java 属性是驼峰（createdAt），
+    # 这个开关负责两边自动对应。默认值就是 true，
+    # 显式写出来是为了让看配置的人知道有这么一层转换在发生。
+    map-underscore-to-camel-case: true
+
+  global-config:
+    # 关掉启动时那行 MyBatis-Plus 的 ASCII banner，日志清静一点
+    banner: false
+
+    db-config:
+      # 主键生成策略：交给数据库的 AUTO_INCREMENT。
+      # 对应建表语句里的 id BIGINT AUTO_INCREMENT PRIMARY KEY
+      id-type: auto
+
+      # 【下面两件事没配，是刻意的，不是漏了】
+      # 逻辑删除：本项目不用，"删除文章"就是真删。
+      # 自动填充：created_at / updated_at 由 Service 层显式赋值，
+      #           字段少，看得见比"被自动填了"更好排查。
+
 # ============================================================
 # 日志
 # ============================================================
 logging:
+  # ----------------------------------------------------------
+  # 日志文件编码写死 UTF-8
+  #
+  # 【为什么不写会出事】
+  # 不写的话编码跟着操作系统默认值走：Windows 上是 GBK，
+  # Linux 上一般是 UTF-8。同一个 jar 在两台机器上写出来的
+  # 日志文件编码不一样 —— 本地看着正常，传到服务器上
+  # tail 出来是一堆乱码（或者反过来）。
+  # 日志乱码最烦的地方在于：它偏偏在你最需要看日志的时候出现。
+  #
+  # 写死之后，两边都能用 less / tail / 编辑器正常打开。
+  # ----------------------------------------------------------
+  charset:
+    file: UTF-8
+
   level:
     # 本项目包下的日志用 DEBUG 级别，方便开发期看清每步流程
     com.mybotweb: DEBUG
     # Spring 自身的日志保持 INFO，避免刷屏
     root: INFO
+
+    # 打印 MyBatis-Plus 实际执行的 SQL。
+    # 【上线前要关掉】否则每个访客点一下后台都刷几行 SQL，日志涨得飞快。
+    # 想只在本地开、云端关，就把这一行挪到 application-local.yml 里去。
+    com.mybotweb.blog.mapper: DEBUG
+
+  # ----------------------------------------------------------
+  # 日志同时写一份到文件
+  #
+  # 【为什么要有文件，而不是只看控制台】
+  #   1. 云服务器上直接 tail -f logs/mybotweb.log 就能看，
+  #      不用依赖 nohup 重定向那套（重定向一忘就什么都没有）
+  #   2. 出问题回头查的时候，控制台那点滚动缓冲早冲没了
+  #
+  # 目录已经被 .gitignore 忽略（logs/ 那一行），不会进仓库。
+  # ----------------------------------------------------------
+  file:
+    name: logs/mybotweb.log
+  logback:
+    rollingpolicy:
+      # 单个文件超过 10MB 就切一个新文件出来
+      max-file-size: 10MB
+      # 最多保留 7 天，更早的自动删。
+      # 云服务器只有 40G 盘，不设上限日志能把它吃满
+      max-history: 7

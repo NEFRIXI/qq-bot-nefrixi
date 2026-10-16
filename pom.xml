@@ -81,6 +81,145 @@
             <optional>true</optional>
         </dependency>
 
+        <!--
+            ============================================================
+            以下是「博客网站」要用的依赖。
+            QQ 机器人那部分一个都用不到，所以这一组可以整体看成
+            "网站功能"的开关：哪天不想要网站了，把这组删掉即可。
+            ============================================================
+        -->
+
+        <!--
+            MyBatis-Plus：操作数据库，省掉手写 SQL 的样板代码。
+            它的 BaseMapper 自带 insert / deleteById / updateById / selectById，
+            条件查询用 QueryWrapper 拼，常见增删改查一行 SQL 都不用写。
+
+            【为什么是 spring-boot3 这个 artifact，而不是更常见的 mybatis-plus-boot-starter】
+            两个名字很像，但对应的 Spring Boot 大版本不同：
+              mybatis-plus-boot-starter         → Spring Boot 2.x
+              mybatis-plus-spring-boot3-starter → Spring Boot 3.x   ← 本项目用这个
+            引错的表现是启动时报 NoClassDefFoundError：里面用的 javax.* 包
+            在 Boot 3 里已经全部换成 jakarta.*。
+
+            【版本为什么不能再低】官方从 3.5.4 起才提供 boot3 专用 starter，
+            3.5.3 及更早压根没有这个 artifact。所以 3.5.5 是能满足要求的最低档。
+        -->
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+            <version>3.5.5</version>
+        </dependency>
+
+        <!--
+            MySQL 驱动。
+            【注意坐标】Boot 3.x 用 com.mysql:mysql-connector-j，
+            不是老的 mysql-connector-java —— 后者是 Boot 2.x 时代的坐标，已废弃。
+            scope 是 runtime：编译期只用到 JDBC 标准接口（java.sql.*），
+            驱动类只在运行时按 URL 反射加载，编译时不需要。
+            版本由 Spring Boot 父 POM 管理，不要自己写。
+        -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!--
+            Flyway：数据库版本管理。
+            建表语句不再手工执行，而是写成 src/main/resources/db/migration/V1__xxx.sql。
+            应用每次启动会自动对比「已经跑过的脚本」和「现有脚本文件」，
+            只执行没跑过的那些。好处是本地和云端的表结构不会各改各的。
+
+            【flyway-mysql 必须单独引】Flyway 从 10.0 起把各家数据库的方言
+            拆成了独立包，少了它启动会直接报 Unsupported Database: MySQL。
+            两个都不写版本，由 Spring Boot 父 POM 统一管理（当前是 9.22.x）。
+        -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
+        </dependency>
+
+        <!--
+            Redis：存文章的热数据 —— 点赞数、浏览量、登录 token 黑名单。
+            这几个值的特点是被频繁 +1，每次都写 MySQL 太浪费；
+            放到 Redis 里一次 INCR 就完事，之后再定期回写数据库。
+
+            这个 starter 默认用 Lettuce 客户端，配置项在 spring.data.redis 下。
+            Redis 没启动时应用仍能启动（连接是懒建立的），
+            但一访问计数接口就会失败 —— 所以本地开发要先把 Redis 起起来。
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
+        <!--
+            JWT（后台登录令牌）。这是一个库拆成的三份，必须配套引、版本必须一致：
+              jjwt-api     —— 编译期用的接口（Jwts.builder() 那些）
+              jjwt-impl    —— 运行期实现，故意不给编译期看，所以 scope 是 runtime
+              jjwt-jackson —— 用 Jackson 序列化 token 内容（项目里已有 Jackson）
+
+            【为什么是 0.11.5，而不是本机 Maven 仓库里现成的 0.9.1】
+            0.9.1 是 2018 年的版本，在 JDK 17 上会抛
+            NoClassDefFoundError: javax/xml/bind/DatatypeConverter ——
+            因为 JAXB 从 JDK 11 起就被移出 JDK 了。0.11.5 不再依赖它。
+        -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>0.11.5</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>0.11.5</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>0.11.5</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!--
+            Markdown 渲染（服务端）：把文章正文从 Markdown 转成 HTML。
+
+            【为什么在服务端转，而不是让浏览器用 JS 转】
+            正文在数据库里存的始终是 Markdown 原文（唯一一份源格式），
+            转 HTML 放在服务端做，有三个好处：
+              1. 渲染结果可以缓存，不用每个访客的浏览器各算一遍
+              2. XSS 防线在服务端 —— 正文里就算写了 <script>，也会被当成普通文本
+              3. 将来 QQ 机器人要读文章内容，同一份渲染逻辑能直接复用
+
+            【版本】0.22.0 支持到 JDK 11+，够用。不用引扩展模块
+            （表格、删除线那些在 commonmark-ext-gfm-tables 里，本项目暂时不需要）。
+        -->
+        <dependency>
+            <groupId>org.commonmark</groupId>
+            <artifactId>commonmark</artifactId>
+            <version>0.22.0</version>
+        </dependency>
+
+        <!--
+            密码哈希（BCrypt）—— 只取 Spring Security 里的加密库这一个 jar。
+
+            【为什么不引 spring-boot-starter-security】
+            那个 starter 自带一整套过滤器链，一引进来就会拦住项目里所有请求
+            （包括机器人用的 /debug/qq），还得额外写配置放开，纯属自找麻烦。
+            我们只需要「把密码变成不可逆哈希」「校验密码」这两个功能，
+            所以只引底层这个包 —— 它不注册任何过滤器，不影响现有代码。
+            版本由 Spring Boot 父 POM 管理。
+        -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
+        </dependency>
+
         <!-- 测试用：JUnit 5 + Spring Test + Mockito 等一整套 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
