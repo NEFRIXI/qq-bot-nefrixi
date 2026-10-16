@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>服务器状态 · WN 后台</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/admin.css">
+</head>
+
+<body data-page="system">
+
+<header class="admin-bar" id="adminBar"></header>
+
+<main class="container-wide admin-main">
+    <div class="admin-head">
+        <div>
+            <h1>服务器状态</h1>
+            <p class="sub">
+                内存、CPU、磁盘，以及 MySQL 和 Redis 通不通
+            </p>
+        </div>
+        <button class="btn btn-sm" id="refreshBtn" onclick="location.reload()">
+            重新检测
+        </button>
+    </div>
+
+    <!--
+      这个页面读数据会慢一点：服务端要真的去连一次 MySQL 和 Redis。
+      数据库没启动时要等连接超时（最多 10 秒），
+      所以 admin.js 会先显示"正在检测"。
+    -->
+    <div id="statusBox"></div>
+</main>
+
+<script src="/js/common.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>

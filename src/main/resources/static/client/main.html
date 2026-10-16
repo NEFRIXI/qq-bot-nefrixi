@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文章 · WN</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+
+<!-- data-page 告诉 main.js 当前是哪个页面，它据此决定跑哪段逻辑 -->
+<body data-page="list">
+
+<!-- ==================== 左侧：音乐时间轴 ====================
+     卡片由 main.js 填进 #musicTrack，曲目数据在 main.js 的
+     MUSIC_LIST 数组里（20 首的位置都留好了）。
+
+     这一栏是通高的，不跟着右边文章滚 —— 滚动权交给 .page-main。
+     鼠标移进来会暂停滚动，方便挑歌。 -->
+<aside class="music-rail">
+    <div class="track" id="musicTrack"></div>
+</aside>
+
+<!-- ==================== 右侧：文章主体 ==================== -->
+<div class="page-main">
+
+    <!-- 阅读进度条。滚动时从左往右长出来，宽度就是读完的比例。
+         定位是 fixed，所以它钉在屏幕顶上不跟着内容走 -->
+    <div class="read-progress" id="readProgress"></div>
+
+    <header class="topbar">
+        <div class="container topbar-inner">
+            <a class="brand" href="/client">
+                <span class="brand-dot"></span>
+                WN
+            </a>
+            <nav class="topbar-links">
+                <a href="/client/main">文章</a>
+                <a href="/client">返回首页</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="page-head">
+            <h1>文章</h1>
+            <p>记录、整理与分享</p>
+            <!-- 三段递减的分隔线，和欢迎页同一种做法。
+                 长度 44/26/10 递减，读起来像余音渐弱 -->
+            <div class="head-divider"><i></i><i></i><i></i></div>
+        </div>
+
+        <!-- 列表内容由 main.js 填进来。这里保持空着，
+             而不是写一堆占位 HTML 再被替换掉 -->
+        <div class="post-list" id="listBox"></div>
+
+        <!-- 翻页条 -->
+        <div id="pagerBox"></div>
+    </main>
+
+    <footer class="site-foot container">
+        <p>WN · 个人站点</p>
+    </footer>
+
+</div>
+
+<!-- 全局播放器。
+     整个页面只有这一个 audio，换歌就是换它的 src ——
+     不是每张卡片配一个：20 个 audio 元素会各自预加载，白占内存 -->
+<audio id="audioPlayer" preload="none"></audio>
+
+<script src="/js/common.js"></script>
+<script src="/js/main.js"></script>
+</body>
+</html>

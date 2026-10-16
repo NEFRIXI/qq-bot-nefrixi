@@ -1,0 +1,1105 @@
+/* ============================================================
+   main.css —— 前台博客（文章列表 + 文章详情）
+   ------------------------------------------------------------
+   用的是深色主题，变量在 common.css 的 :root 里已经定义好了。
+   这里只写博客特有的东西：顶部栏、文章卡片、正文排版。
+
+   【正文排版是这个文件里最要紧的部分】
+   别的样式难看只是难看，正文排版难看会让人不想读。
+   所以下面 .article-body 那一段写得比其它部分细：
+   行高、段间距、代码块底色、引用条，都调过。
+   ============================================================ */
+
+/* ============================================================
+   1. 顶部栏
+   ============================================================ */
+.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(26, 22, 32, 0.88);
+    /* 磨砂玻璃效果。不支持的浏览器会退化成半透明底色，不影响阅读 */
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+}
+
+.topbar-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    color: var(--text);
+}
+
+.brand:hover {
+    color: var(--text);
+}
+
+/* 品牌前面的小圆点，用主题色。比放一个 logo 图片省事 */
+.brand-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent);
+}
+
+.topbar-links {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-size: 13.5px;
+}
+
+.topbar-links a {
+    color: var(--text-dim);
+}
+
+.topbar-links a:hover {
+    color: var(--text);
+}
+
+/* ============================================================
+   2. 页面标题区
+   ============================================================ */
+.page-head {
+    padding: 46px 0 30px;
+}
+
+.page-head h1 {
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+.page-head p {
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--text-dim);
+}
+
+/* ============================================================
+   3. 文章卡片（列表项）
+   ============================================================ */
+.post-list {
+    padding-bottom: 60px;
+}
+
+.post-card {
+    display: block;
+    padding: 22px 0;
+    border-bottom: 1px solid var(--border);
+    transition: border-color .25s ease;
+}
+
+.post-card:hover {
+    border-bottom-color: var(--border-strong);
+}
+
+.post-card:first-child {
+    border-top: 1px solid var(--border);
+}
+
+.post-title {
+    display: block;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.5;
+    color: var(--text);
+    transition: color .2s ease;
+}
+
+.post-card:hover .post-title {
+    color: var(--accent);
+}
+
+.post-summary {
+    margin-top: 8px;
+    font-size: 14px;
+    line-height: 1.75;
+    color: var(--text-dim);
+    /* 摘要最多显示两行，超出用省略号。
+       -webkit-line-clamp 是事实标准，各浏览器都支持 */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.post-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    font-size: 12.5px;
+    color: var(--text-faint);
+}
+
+.post-meta .dot {
+    opacity: 0.5;
+}
+
+/* ============================================================
+   4. 分页
+   ============================================================ */
+.pager {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 30px 0 70px;
+    font-size: 13.5px;
+    color: var(--text-dim);
+}
+
+/* ============================================================
+   5. 文章详情
+   ============================================================ */
+.article-head {
+    padding: 46px 0 8px;
+}
+
+.article-title {
+    font-size: 28px;
+    font-weight: 600;
+    line-height: 1.45;
+    letter-spacing: 0.02em;
+}
+
+.article-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--text-faint);
+}
+
+/* ============================================================
+   6. 正文排版
+   ------------------------------------------------------------
+   这一段的每个数字都不是随手写的：
+     行高 1.85  —— 中文比英文需要更大的行距，1.7 以下会挤
+     段落间距 1.2em —— 大约半行，够分开又不显得散
+     字号 16px   —— 正文比 UI 文字（14~15px）大一号，久读不累
+   ============================================================ */
+.article-body {
+    padding: 26px 0 10px;
+    font-size: 16px;
+    line-height: 1.85;
+    color: rgba(255, 255, 255, 0.86);
+    /* 中英文混排时自动加空隙，观感好很多 */
+    word-wrap: break-word;
+}
+
+.article-body > *:first-child {
+    margin-top: 0;
+}
+
+.article-body p {
+    margin: 1.15em 0;
+}
+
+.article-body h1,
+.article-body h2,
+.article-body h3,
+.article-body h4 {
+    margin: 1.8em 0 0.7em;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--text);
+}
+
+.article-body h1 { font-size: 24px; }
+.article-body h2 { font-size: 21px; }
+.article-body h3 { font-size: 18px; }
+.article-body h4 { font-size: 16px; }
+
+/* h2 左侧加一道主题色的短竖线，比单纯加粗更容易区分层级 */
+.article-body h2 {
+    padding-left: 12px;
+    border-left: 3px solid var(--accent);
+}
+
+.article-body ul,
+.article-body ol {
+    margin: 1.1em 0;
+    padding-left: 1.6em;
+}
+
+.article-body li {
+    margin: 0.4em 0;
+}
+
+.article-body a {
+    color: var(--accent-alt);
+    border-bottom: 1px solid hsla(288, 60%, 66%, 0.35);
+}
+
+.article-body a:hover {
+    border-bottom-color: var(--accent-alt);
+}
+
+.article-body strong {
+    color: var(--text);
+    font-weight: 600;
+}
+
+/* 引用块：左侧竖线 + 稍暗的字 */
+.article-body blockquote {
+    margin: 1.4em 0;
+    padding: 2px 0 2px 16px;
+    border-left: 3px solid var(--border-strong);
+    color: var(--text-dim);
+}
+
+.article-body blockquote p {
+    margin: 0.6em 0;
+}
+
+/* 行内代码 */
+.article-body code {
+    padding: 2px 6px;
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    color: hsl(324, 60%, 74%);
+    background: var(--surface);
+    border-radius: 5px;
+}
+
+/* 代码块。水平方向可以单独滚动 —— 不让长行把整个页面撑宽 */
+.article-body pre {
+    margin: 1.4em 0;
+    padding: 16px 18px;
+    overflow-x: auto;
+    background: #15111a;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    line-height: 1.65;
+}
+
+.article-body pre code {
+    padding: 0;
+    font-size: 13.5px;
+    color: rgba(255, 255, 255, 0.82);
+    background: none;
+}
+
+.article-body img {
+    display: block;
+    max-width: 100%;
+    margin: 1.5em auto;
+    border-radius: var(--radius);
+}
+
+.article-body hr {
+    margin: 2.2em 0;
+    border: none;
+    border-top: 1px solid var(--border);
+}
+
+.article-body table {
+    width: 100%;
+    margin: 1.4em 0;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.article-body th,
+.article-body td {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    text-align: left;
+}
+
+.article-body th {
+    background: var(--surface);
+    font-weight: 600;
+}
+
+/* ============================================================
+   7. 点赞区
+   ============================================================ */
+.article-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 34px 0 0;
+    padding-top: 26px;
+    border-top: 1px solid var(--border);
+}
+
+/* 点赞按钮：比普通按钮大一圈，因为它是这一页唯一的互动 */
+.like-btn {
+    padding: 11px 26px;
+    font-size: 15px;
+}
+
+.like-btn .like-count {
+    margin-left: 4px;
+    font-variant-numeric: tabular-nums;   /* 数字等宽，跳动时不抖 */
+}
+
+/* 点过之后的状态。不做去重，所以这只是"这次会话点过了"的视觉反馈 */
+.like-btn.is-liked {
+    animation: like-pop .38s ease;
+}
+
+@keyframes like-pop {
+    0%   { transform: scale(1); }
+    45%  { transform: scale(1.09); }
+    100% { transform: scale(1); }
+}
+
+/* ============================================================
+   8. 底部
+   ============================================================ */
+.site-foot {
+    padding: 34px 0 46px;
+    font-size: 12.5px;
+    color: var(--text-faint);
+    text-align: center;
+}
+
+.site-foot a {
+    color: var(--text-faint);
+}
+
+.site-foot a:hover {
+    color: var(--text-dim);
+}
+
+/* ============================================================
+   9. 窄屏适配
+   ------------------------------------------------------------
+   手机上把字号和留白收一点。只调这两处就够 ——
+   布局本身是单列流式的，不需要重排。
+   ============================================================ */
+@media (max-width: 640px) {
+    .page-head {
+        padding: 30px 0 20px;
+    }
+
+    .page-head h1 {
+        font-size: 21px;
+    }
+
+    .article-title {
+        font-size: 22px;
+    }
+
+    .article-head {
+        padding: 30px 0 6px;
+    }
+
+    .article-body {
+        font-size: 15.5px;
+    }
+
+    .article-body pre {
+        padding: 12px 14px;
+        /* 手机上代码块贴边会显得挤 */
+        margin-left: -4px;
+        margin-right: -4px;
+    }
+}
+
+/* ============================================================
+   10. 左右分栏骨架
+   ------------------------------------------------------------
+   这一页不再让整个 body 滚动，改成左边一栏钉住、右边一栏自己滚。
+   原因很直接：音乐栏要顶天立地地站着，读文章往下翻时它不能跟着走。
+   ============================================================ */
+body {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;          /* 滚动权交给 .page-main */
+}
+
+.page-main {
+    flex: 1;
+    /* 不加这一条，正文里的长代码块会把这一栏撑宽，把左栏挤没 */
+    min-width: 0;
+    height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    /* 左栏"投"在正文区左缘的一道暗影。用 inset 内阴影而不是给左栏加
+       box-shadow：后者会被后面的 .page-main 盖住，看不见。
+       有这道影子，两栏才是"一前一后"，而不是"左右贴在一起" */
+    box-shadow: inset 18px 0 34px -26px rgba(0, 0, 0, 0.95);
+}
+
+/* ============================================================
+   11. 左侧音乐时间轴
+   ============================================================ */
+.music-rail {
+    position: relative;
+    width: 220px;
+    flex-shrink: 0;
+    height: 100vh;
+    /* 关键：轨道滚动时超出部分被裁掉，不会多出一条滚动条 */
+    overflow: hidden;
+    /* ── 这一栏必须明显是"独立的一块"，不能和右边糊成一片 ──
+       三层叠加：
+         ① 底色 --bg-soft 比正文区的 --bg 亮一档，先把块面分开
+         ② 顶部/底部各一片主题色光晕，给这块面板一点纵深
+         ③ 右侧不再画边框 —— 硬线看着像表格。改由 .page-main 的
+            内阴影去分界，那样两栏是"一前一后"而不是"左右贴着" */
+    background:
+        radial-gradient(130% 38% at 50% 0%, hsla(324, 72%, 62%, 0.16), transparent 70%),
+        radial-gradient(130% 38% at 50% 100%, hsla(288, 64%, 66%, 0.14), transparent 70%),
+        var(--bg-soft);
+}
+
+/* 上下两端做淡出：卡片是被雾遮住，而不是被刀切断。
+   这两个伪元素盖在卡片上面，所以必须 pointer-events: none，
+   否则顶部和底部各 96px 内的卡片点不动 */
+.music-rail::before,
+.music-rail::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 96px;
+    z-index: 3;
+    pointer-events: none;
+}
+
+.music-rail::before {
+    top: 0;
+    background: linear-gradient(180deg, var(--bg-soft), transparent);
+}
+
+.music-rail::after {
+    bottom: 0;
+    background: linear-gradient(0deg, var(--bg-soft), transparent);
+}
+
+/* ---- 滚动轨道 ---- */
+.track {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 26px;
+    width: 100%;
+    /* 上下留白：卡片悬停时会放大，不留白的话最上面那张会被顶边切掉一半 */
+    padding: 96px 0;
+    will-change: transform;
+    animation: rail-scroll var(--rail-duration, 60s) linear infinite;
+}
+
+/* 鼠标移进左栏就暂停，方便挑歌。
+   不暂停的话，正看着的那张会自己滑走 */
+.music-rail:hover .track {
+    animation-play-state: paused;
+}
+
+/* 位移用 --step（JS 量出来的"一份"高度），不用 -50%。
+   原因：track 的总高包含上下 padding，-50% 会把 padding 也劈成两半，
+   接缝处差几十像素，肉眼能看出跳一下。 */
+@keyframes rail-scroll {
+    from { transform: translateY(0); }
+    to   { transform: translateY(calc(-1 * var(--step, 0px))); }
+}
+
+/* ---- 单张卡片 ---- */
+.song-card {
+    position: relative;
+    width: 140px;
+    height: 140px;
+    flex-shrink: 0;
+    border-radius: 20px;
+    overflow: hidden;
+    cursor: pointer;
+    background: var(--surface);
+    border: 3px solid transparent;
+    transform-origin: center;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+    transition:
+        transform .4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+        box-shadow .4s ease,
+        border-color .4s ease;
+}
+
+/* 悬停放大并向右浮出。
+   为什么往右不往左：左边是屏幕边缘，往左浮出去就被切掉了 */
+.song-card:hover {
+    transform: scale(1.3) translateX(12px);
+    z-index: 10;
+    box-shadow:
+        0 22px 38px rgba(0, 0, 0, 0.7),
+        0 0 28px hsla(324, 68%, 62%, 0.30);
+}
+
+/* 没有封面时的兜底：主题色渐变 + 标题首字。
+   直接丢一个 <img> 而图不存在的话，浏览器会显示破图图标，很难看 */
+.cover-fallback {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.92);
+    background: linear-gradient(135deg, hsl(324, 42%, 32%), hsl(288, 42%, 29%));
+}
+
+.song-card img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: filter .4s ease;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.song-card:hover img {
+    filter: brightness(1.15);
+}
+
+/* ---- 年份标签（悬停时从左边滑进来）---- */
+.year-tag {
+    position: absolute;
+    top: 9px;
+    left: 9px;
+    z-index: 5;
+    padding: 3px 11px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    color: #fff;
+    background: var(--accent);
+    border-radius: 999px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    font-variant-numeric: tabular-nums;
+    opacity: 0;
+    transform: translateX(-14px);
+    transition: all .3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    pointer-events: none;
+}
+
+.song-card:hover .year-tag {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* ---- 播放遮罩 ---- */
+.play-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.45);
+    opacity: 0;
+    transition: opacity .3s ease;
+    pointer-events: none;
+}
+
+.song-card:hover .play-overlay,
+.song-card.playing .play-overlay {
+    opacity: 1;
+}
+
+/* 播放三角：纯 CSS 边框画出来的，不引图标字体也不放 SVG */
+.play-icon {
+    width: 0;
+    height: 0;
+    border-top: 13px solid transparent;
+    border-bottom: 13px solid transparent;
+    border-left: 20px solid #fff;
+    /* 三角形的视觉重心偏左，往右挪 3px 才看着居中 */
+    margin-left: 3px;
+    filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.5));
+    transition: all .3s ease;
+}
+
+/* 正在播放时，三角变成两条竖线。
+   注意这里必须写 border: none 把上面那三条边框清掉，
+   只改 width/height 是画不出竖线的 —— 三角的边框还在那儿 */
+.song-card.playing .play-icon {
+    width: 14px;
+    height: 22px;
+    margin-left: 0;
+    border: none;
+    border-left: 6px solid var(--accent);
+    border-right: 6px solid var(--accent);
+    filter: drop-shadow(0 0 9px hsla(324, 68%, 62%, 0.85));
+}
+
+/* ---- 卡片底部的歌名 ---- */
+.song-title {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 10px;
+    z-index: 5;
+    padding: 0 9px;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.95);
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity .3s ease, transform .3s ease;
+    pointer-events: none;
+}
+
+.song-card:hover .song-title,
+.song-card.playing .song-title {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* ---- 正在播放 ---- */
+/* 鼠标移开之后边框仍然亮着，这样滚回来能一眼认出刚才在放哪首 */
+.song-card.playing {
+    border-color: var(--accent);
+    box-shadow:
+        0 0 0 1px hsla(324, 68%, 62%, 0.5),
+        0 0 28px hsla(324, 68%, 62%, 0.5);
+}
+
+/* ---- 一首歌都没有时的提示 ---- */
+.rail-empty {
+    padding: 20px 18px;
+    font-size: 12.5px;
+    line-height: 1.9;
+    color: var(--text-faint);
+    text-align: center;
+}
+
+/* ============================================================
+   12. 窄屏：左栏让位
+   ------------------------------------------------------------
+   220px 的固定栏在手机上会占掉一半屏幕，文章没法读。
+   所以窄屏直接收起音乐栏，恢复成整页滚动。
+   ============================================================ */
+@media (max-width: 900px) {
+    body {
+        display: block;
+        height: auto;
+        overflow: auto;
+    }
+
+    .music-rail {
+        display: none;
+    }
+
+    .page-main {
+        height: auto;
+        overflow: visible;
+    }
+
+    /* 左栏收起来了，氛围光晕铺满整屏 */
+    .page-main::before {
+        left: 0;
+    }
+}
+
+/* ============================================================
+   13. 动效层
+   ------------------------------------------------------------
+   这一节的动画全部只改 transform 和 opacity。
+   原因：这两个属性不触发重排、不触发重绘，浏览器能直接交给
+   合成层算 —— 掉不掉帧基本就看这一条。
+
+   风格对着欢迎页（client/index.html）来，它的手法是：
+     · 慢。"呼吸"给 18 秒，入场用 cubic-bezier(0.22,1,0.36,1)
+       （起步快、收尾极缓），不用那种"啪"地弹出来的弹簧曲线
+     · 位移小。6～14px 的量级，是"浮起来"不是"飞进来"
+     · 光是叠上去的，不是画上去的。能用渐变就不用实体边框
+
+   零图片、零库、零字体文件 —— 网络开销只有这个 css 文件本身。
+   ============================================================ */
+
+/* ---- 13.1 正文区的氛围光 ---- */
+/* 和欢迎页的 .atmosphere 同一个手法：screen 混合只提亮不压暗，
+   看着像"打在页面上的光"，而不是糊上去的一块色斑。
+
+   浓度比欢迎页低得多 —— 那边是打在照片上，这边是打在纯色底上，
+   同样的浓度会显脏。
+
+   z-index 用 -1：这样它压在正文之下、页面底色之上。
+   给 0 的话（定位元素默认在普通流之上）会把文章盖住。 */
+.page-main::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 220px;                 /* 让开左栏 */
+    z-index: -1;
+    pointer-events: none;
+    mix-blend-mode: screen;
+    background:
+        radial-gradient(46% 38% at 88% 8%, hsla(324, 80%, 62%, 0.14), transparent 72%),
+        radial-gradient(44% 36% at 10% 94%, hsla(288, 70%, 62%, 0.12), transparent 72%);
+    /* 18 秒一次，和欢迎页同拍。
+       只动 transform 不动 opacity，免得和入场动画抢同一个属性 */
+    animation: pageBreathe 18s ease-in-out infinite alternate;
+}
+
+@keyframes pageBreathe {
+    from { transform: scale(1); }
+    to   { transform: scale(1.06); }
+}
+
+/* ---- 13.2 顶栏 ---- */
+/* 底部分界线改成渐变：中间亮、两端淡出。
+   一条均匀的线看着像表格边框，渐变的像光 */
+.topbar {
+    border-bottom: none;
+    background: linear-gradient(180deg,
+        rgba(26, 22, 32, 0.94),
+        rgba(26, 22, 32, 0.80));
+    backdrop-filter: blur(14px) saturate(130%);
+    -webkit-backdrop-filter: blur(14px) saturate(130%);
+}
+
+.topbar::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: linear-gradient(90deg,
+        transparent,
+        hsla(324, 70%, 66%, 0.38) 20%,
+        hsla(288, 60%, 70%, 0.32) 80%,
+        transparent);
+}
+
+/* ---- 13.3 页面标题 ---- */
+/* 从纯白渐变到品红再收进紫 —— 和欢迎页标题同一套取色。
+   背景一截就停，是为了让大部分字仍是白色，只有收尾带色 */
+.page-head h1 {
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    background: linear-gradient(96deg,
+        #ffffff 0%,
+        #ffffff 42%,
+        hsl(324, 88%, 90%) 78%,
+        hsl(288, 78%, 86%) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    /* background-clip: text 之后文字是透明的，text-shadow 会失效 ——
+       它是画在文字底下的。发光改用 drop-shadow：它按渲染后的
+       不透明像素算，配透明文字正合适 */
+    filter: drop-shadow(0 0 18px hsla(324, 88%, 72%, 0.26));
+    opacity: 0;
+    animation: riseIn 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.05s forwards;
+}
+
+.page-head p {
+    opacity: 0;
+    animation: riseIn 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.20s forwards;
+}
+
+/* 三段递减的分隔线，抄欢迎页的做法。
+   44 / 26 / 10 递减，读起来像余音渐弱，比一条等长的实线耐看 */
+.head-divider {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 18px;
+    opacity: 0;
+    transform-origin: left center;
+    animation: lineGrow 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.32s forwards;
+}
+
+.head-divider i {
+    display: block;
+    height: 1px;
+    flex: 0 0 auto;
+}
+
+.head-divider i:nth-child(1) {
+    width: 44px;
+    background: linear-gradient(90deg,
+        hsla(324, 95%, 82%, 0.95), hsla(324, 95%, 82%, 0.5));
+}
+
+.head-divider i:nth-child(2) {
+    width: 26px;
+    background: linear-gradient(90deg,
+        hsla(310, 88%, 80%, 0.5), hsla(300, 84%, 78%, 0.3));
+}
+
+.head-divider i:nth-child(3) {
+    width: 10px;
+    background: hsla(288, 82%, 78%, 0.28);
+}
+
+@keyframes riseIn {
+    from {
+        opacity: 0;
+        transform: translateY(14px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes lineGrow {
+    from {
+        opacity: 0;
+        transform: scaleX(0.2);
+    }
+    to {
+        opacity: 1;
+        transform: scaleX(1);
+    }
+}
+
+/* ---- 13.4 文章卡片 ---- */
+/* 列表项进入可视区时淡入上浮。
+   初始状态由 JS 打上 .is-hidden，避免"没开 JS 就什么都看不见" */
+.post-card.is-hidden {
+    opacity: 0;
+    transform: translateY(16px);
+}
+
+.post-card {
+    position: relative;
+    transition:
+        transform .45s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity .55s ease,
+        border-color .35s ease;
+}
+
+.post-card.is-shown {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* 悬停：整块右移一点 + 左侧滑出一条主题色竖线。
+   竖线用绝对定位的伪元素、不用 border-left ——
+   border 会改变盒模型宽度，那一行文字会跟着抖一下 */
+.post-card {
+    /* 悬停时右移，配合竖线出现，读起来像"被挑出来了" */
+    will-change: transform;
+}
+
+.post-card::before {
+    content: '';
+    position: absolute;
+    left: -14px;
+    top: 50%;
+    width: 2px;
+    height: 0;
+    border-radius: 2px;
+    background: linear-gradient(180deg, var(--accent), var(--accent-alt));
+    transform: translateY(-50%);
+    opacity: 0;
+    transition:
+        height .45s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity .35s ease;
+}
+
+.post-card:hover {
+    transform: translateX(6px);
+}
+
+.post-card:hover::before {
+    height: 62%;
+    opacity: 1;
+}
+
+.post-card:hover .post-title {
+    color: var(--accent);
+    text-shadow: 0 0 20px hsla(324, 80%, 66%, 0.35);
+}
+
+/* ---- 13.5 翻页按钮：悬停白光扫过 ---- */
+/* 抄欢迎页 .enter 的做法。按钮不大，扫光是最省事的一点高级感 */
+.btn {
+    position: relative;
+    overflow: hidden;
+}
+
+.btn::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -120%;
+    width: 120%;
+    height: 100%;
+    background: linear-gradient(100deg,
+        transparent, rgba(255, 255, 255, 0.18), transparent);
+    transition: left .7s ease;
+    pointer-events: none;
+}
+
+.btn:hover::after {
+    left: 100%;
+}
+
+/* 禁用状态不扫光：扫了会让人以为能点 */
+.btn:disabled::after {
+    display: none;
+}
+
+/* ---- 13.6 正文区的滚动条 ---- */
+/* 默认滚动条在深色页面上是一条浅灰硬条，很出戏。
+   改成细的、半透明的，悬停才明显 */
+.page-main {
+    scrollbar-width: thin;
+    scrollbar-color: hsla(324, 40%, 60%, 0.30) transparent;
+}
+
+.page-main::-webkit-scrollbar {
+    width: 10px;
+}
+
+.page-main::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.page-main::-webkit-scrollbar-thumb {
+    background: hsla(324, 40%, 60%, 0.22);
+    /* 配透明边框 + content-box 裁剪，把滑块缩窄成一条细缝 */
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+}
+
+.page-main::-webkit-scrollbar-thumb:hover {
+    background: hsla(324, 55%, 66%, 0.48);
+    background-clip: content-box;
+}
+
+/* ---- 13.7 左栏卡片的入场 ---- */
+/* 【为什么这里用 translate 而不是 transform，不是随手写的】
+   入场动画带 forwards，会把动画碰过的属性"锁"住，而且动画的
+   优先级高于普通声明 —— 包括 :hover。如果入场动的是 transform，
+   那鼠标悬停时的 scale(1.3) 会完全失效：动画咬定 transform 是
+   translateY(0)，它就一直是 translateY(0)，卡片怎么点都不放大。
+
+   translate 和 transform 是**两个独立属性**，会叠加：
+   入场用 translate 往上挪，悬停用 transform 缩放，互不干扰。
+   兼容性没问题 —— translate 属性 Chrome 104+ / Safari 14.1+ /
+   Firefox 72+ 都支持。 */
+.song-card {
+    opacity: 0;
+    translate: 0 18px;
+    animation: cardIn .7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes cardIn {
+    from {
+        opacity: 0;
+        translate: 0 18px;
+    }
+    to {
+        opacity: 1;
+        translate: 0 0;
+    }
+}
+
+/* 正在播放时那圈光晕缓慢脉动，提示"它还在响"。
+   周期 6 秒 —— 欢迎页的节奏数字。
+   注意两个动画都要列出来：这一条会覆盖上面的 animation，
+   只写 playingPulse 的话入场动画就没了 */
+.song-card.playing {
+    animation: cardIn .7s cubic-bezier(0.22, 1, 0.36, 1) forwards,
+               playingPulse 6s ease-in-out infinite;
+}
+
+@keyframes playingPulse {
+    0%, 100% {
+        box-shadow:
+            0 0 0 1px hsla(324, 68%, 62%, 0.5),
+            0 0 22px hsla(324, 68%, 62%, 0.40);
+    }
+    50% {
+        box-shadow:
+            0 0 0 1px hsla(324, 68%, 62%, 0.75),
+            0 0 36px hsla(324, 68%, 62%, 0.70);
+    }
+}
+
+/* ---- 13.8 尊重系统的"减少动态效果" ---- */
+/* 有人是真的会晕。这个开关一开，所有装饰性动画全停，
+   只保留必要的状态变化。
+   注意 .track 的滚动必须单独停：它是位移无穷循环，
+   光把时长改成 0.01ms 会让它疯狂闪 */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    .track,
+    .song-card,
+    .song-card.playing {
+        animation: none !important;
+    }
+
+    .song-card,
+    .post-card.is-hidden,
+    .page-head h1,
+    .page-head p,
+    .head-divider {
+        opacity: 1 !important;
+        transform: none !important;
+        /* 入场动画用的是 translate，也要一起复位 */
+        translate: none !important;
+    }
+}
+
+/* ---- 13.9 阅读进度条 ---- */
+/* 顶上那根 2px 的细线，长度就是读完的比例。
+
+   用 transform: scaleX 而不是直接改 width：scaleX 交给合成层，
+   改 width 的话每一帧都要重排整页 —— 滚动时这个差别很明显。
+
+   位置 fixed、让开左栏。z-index 压过顶栏（顶栏是 100）。
+
+   刻意不加 transition：滚动时它每一帧都在变，再加过渡等于
+   让那根线追着走，手感会发黏 */
+.read-progress {
+    position: fixed;
+    top: 0;
+    left: 220px;
+    right: 0;
+    height: 2px;
+    z-index: 200;
+    transform: scaleX(0);
+    transform-origin: left center;
+    background: linear-gradient(90deg, var(--accent), var(--accent-alt));
+    box-shadow: 0 0 12px hsla(324, 80%, 66%, 0.55);
+    pointer-events: none;
+}
+
+@media (max-width: 900px) {
+    .read-progress {
+        left: 0;
+    }
+}

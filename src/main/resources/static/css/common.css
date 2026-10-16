@@ -1,0 +1,445 @@
+/* ============================================================
+   公共样式 —— 所有页面共用
+   ------------------------------------------------------------
+   这个文件只放三样东西：
+     ① 变量（颜色、间距、圆角）—— 换主题只改这里
+     ② reset 和基础排版
+     ③ 公用构件（按钮、卡片、表单、表格、标签、提示）
+
+   页面专属的样式放在各自的 css 里（main.css / admin.css）。
+
+   【配色从哪来】
+   欢迎页（client/index.html）的配色不是随手定的，它由一串 108 位
+   随机字符串推导出来，其中两条线索是两个色相：
+       324°（品红，来自串里最大的数字 9）
+       288°（紫，来自紧随其后的数字 8）
+   本文件把这两个值定义成变量，前台页面沿用它们，
+   所以新页面和欢迎页是同一个调子，不是两套东西。
+   ============================================================ */
+
+/* ============================================================
+   1. 变量
+   ============================================================ */
+:root {
+    /* ---- 主题色 ---- */
+    --hue-warm: 324;            /* 品红 */
+    --hue-cool: 288;            /* 紫 */
+
+    --accent: hsl(324, 68%, 62%);
+    --accent-dim: hsl(324, 50%, 48%);
+    --accent-soft: hsla(324, 68%, 62%, 0.14);
+    --accent-alt: hsl(288, 60%, 66%);
+
+    /* ---- 状态色 ---- */
+    --ok: hsl(150, 55%, 52%);
+    --warn: hsl(38, 80%, 60%);
+    --danger: hsl(355, 68%, 60%);
+
+    /* ---- 深色主题（前台默认）---- */
+    --bg: #1a1620;
+    --bg-soft: #211c28;
+    --surface: #2a2433;
+    --surface-hover: #332c3d;
+    --border: rgba(255, 255, 255, 0.10);
+    --border-strong: rgba(255, 255, 255, 0.22);
+
+    --text: rgba(255, 255, 255, 0.92);
+    --text-dim: rgba(255, 255, 255, 0.58);
+    --text-faint: rgba(255, 255, 255, 0.34);
+
+    /* ---- 尺寸 ---- */
+    --radius: 10px;
+    --radius-lg: 16px;
+    --gap: 16px;
+    --gap-lg: 28px;
+    --page-max: 860px;          /* 正文阅读宽度：超过这个宽度眼睛会疲劳 */
+    --admin-max: 1180px;        /* 后台是表格和表单，可以宽一些 */
+
+    /* ---- 阴影 ---- */
+    --shadow: 0 2px 12px rgba(0, 0, 0, 0.28);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.38);
+
+    /* ---- 字体 ---- */
+    /* 只列系统自带的字体：项目要求零外部依赖，不引 CDN 字体。
+
+       【顺序和欢迎页保持一致】字体列表是按顺序命中的：
+       把 "Segoe UI" 排在 "PingFang SC" 前面，在同时装了这两者的
+       机器上就会先命中前者，渲染出来和欢迎页不是同一套字。
+       欢迎页（client/index.html）是这套设计的样板，其它页面跟着它排。 */
+    --font: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei",
+            "Segoe UI", "Hiragino Sans GB", sans-serif;
+    --font-mono: "Cascadia Mono", Consolas, "Courier New", monospace;
+}
+
+/* ============================================================
+   2. Reset 和基础排版
+   ============================================================ */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    /* 锚点跳转时平滑滚动，比"啪"地跳过去舒服 */
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--text);
+    background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+}
+
+a {
+    color: var(--accent);
+    text-decoration: none;
+    transition: color .2s ease;
+}
+
+a:hover {
+    color: var(--accent-alt);
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* 键盘 Tab 聚焦时的轮廓。用 :focus-visible 是为了鼠标点击不出现轮廓，
+   只有键盘操作才显示 —— 无障碍和观感兼顾 */
+:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* ============================================================
+   3. 布局容器
+   ============================================================ */
+.container {
+    max-width: var(--page-max);
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.container-wide {
+    max-width: var(--admin-max);
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* ============================================================
+   4. 按钮
+   ------------------------------------------------------------
+   用 <button class="btn"> 或 <a class="btn"> 都行。
+   两种都支持是刻意的：跳转用 <a>、提交用 <button>，
+   语义不同，但外观应该一致。
+   ============================================================ */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 18px;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background .2s ease, border-color .2s ease, transform .1s ease;
+    /* 按钮文字不要被选中：连点时选中蓝底很难看 */
+    user-select: none;
+}
+
+.btn:hover {
+    background: var(--surface-hover);
+    border-color: var(--border-strong);
+    color: var(--text);
+}
+
+.btn:active {
+    transform: translateY(1px);
+}
+
+/* 主要操作：一屏里只应该有一个 */
+.btn-primary {
+    color: #fff;
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.btn-primary:hover {
+    background: var(--accent-dim);
+    border-color: var(--accent-dim);
+    color: #fff;
+}
+
+/* 危险操作（删除）：红字描边，不填色 —— 填色的红按钮太容易误点 */
+.btn-danger {
+    color: var(--danger);
+    border-color: hsla(355, 68%, 60%, 0.4);
+    background: transparent;
+}
+
+.btn-danger:hover {
+    color: #fff;
+    background: var(--danger);
+    border-color: var(--danger);
+}
+
+.btn-sm {
+    padding: 5px 12px;
+    font-size: 13px;
+}
+
+.btn:disabled,
+.btn.is-disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* ============================================================
+   5. 卡片
+   ============================================================ */
+.card {
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px 24px;
+}
+
+.card + .card {
+    margin-top: var(--gap);
+}
+
+.card-title {
+    margin-bottom: 14px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+/* ============================================================
+   6. 表单
+   ============================================================ */
+.field {
+    margin-bottom: 18px;
+}
+
+.field label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 13px;
+    color: var(--text-dim);
+}
+
+.field .hint {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--text-faint);
+}
+
+.input,
+.textarea,
+.select {
+    width: 100%;
+    padding: 9px 12px;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    transition: border-color .2s ease;
+}
+
+.input:focus,
+.textarea:focus,
+.select:focus {
+    border-color: var(--accent);
+    outline: none;
+}
+
+.textarea {
+    min-height: 120px;
+    line-height: 1.7;
+    /* 正文编辑要能纵向拉伸 —— 写长文时手会需要更大的框 */
+    resize: vertical;
+}
+
+/* Markdown 编辑器专用的等宽字体 */
+.textarea-mono {
+    font-family: var(--font-mono);
+    font-size: 13.5px;
+}
+
+/* ============================================================
+   7. 表格
+   ============================================================ */
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.table th,
+.table td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.table th {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+    white-space: nowrap;
+}
+
+.table tbody tr:hover {
+    background: var(--surface);
+}
+
+/* ============================================================
+   8. 标签（状态徽章）
+   ============================================================ */
+.badge {
+    display: inline-block;
+    padding: 2px 9px;
+    font-size: 12px;
+    line-height: 1.6;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.badge-published {
+    color: var(--ok);
+    background: hsla(150, 55%, 52%, 0.14);
+}
+
+.badge-draft {
+    color: var(--warn);
+    background: hsla(38, 80%, 60%, 0.14);
+}
+
+/* ============================================================
+   9. 提示条（toast）
+   ------------------------------------------------------------
+   由 js/common.js 里的 toast() 动态创建，不需要在 HTML 里写。
+   ============================================================ */
+.toast-box {
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    /* 容器本身不挡鼠标：它铺在页面上方，挡了就没法点底下的东西 */
+    pointer-events: none;
+}
+
+.toast {
+    padding: 10px 20px;
+    font-size: 14px;
+    color: #fff;
+    background: rgba(30, 26, 36, 0.96);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    animation: toast-in .24s ease;
+}
+
+.toast.is-out {
+    animation: toast-out .24s ease forwards;
+}
+
+.toast-ok {
+    border-color: hsla(150, 55%, 52%, 0.6);
+}
+
+.toast-error {
+    border-color: hsla(355, 68%, 60%, 0.6);
+}
+
+@keyframes toast-in {
+    from { opacity: 0; transform: translateY(-12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes toast-out {
+    from { opacity: 1; transform: translateY(0); }
+    to   { opacity: 0; transform: translateY(-12px); }
+}
+
+/* ============================================================
+   10. 加载态和空状态
+   ============================================================ */
+.loading,
+.empty {
+    padding: 48px 20px;
+    text-align: center;
+    color: var(--text-faint);
+    font-size: 14px;
+}
+
+/* 转圈：用 CSS 画，不引图标库 */
+.spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    vertical-align: -3px;
+    border: 2px solid var(--border-strong);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ============================================================
+   11. 通用小工具
+   ============================================================ */
+.text-dim { color: var(--text-dim); }
+.text-faint { color: var(--text-faint); }
+.text-sm { font-size: 13px; }
+.text-mono { font-family: var(--font-mono); }
+
+.row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.row-between {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.row-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.mt-0 { margin-top: 0; }
+.mt-1 { margin-top: 10px; }
+.mt-2 { margin-top: 20px; }
+.mt-3 { margin-top: 32px; }
+
+.hidden { display: none !important; }

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 · WN 后台</title>
+    <!-- 顺序不能反：admin.css 要覆盖 common.css 里的主题变量 -->
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/admin.css">
+</head>
+
+<body data-page="login">
+
+<div class="login-wrap">
+    <div class="login-card">
+        <h1>WN 后台</h1>
+        <p class="login-sub">用管理员账号登录</p>
+
+        <!--
+          用 <form> 而不是一堆 <div>，好处是按回车就能提交（浏览器原生支持），
+          不需要自己监听键盘事件。admin.js 里会拦掉默认提交改成异步请求。
+        -->
+        <form id="loginForm">
+            <div class="field">
+                <label for="username">用户名</label>
+                <input class="input" id="username" name="username"
+                       autocomplete="username" autofocus>
+            </div>
+
+            <div class="field">
+                <label for="password">密码</label>
+                <!-- type=password 让浏览器遮住输入，也避免被旁观者看到 -->
+                <input class="input" id="password" name="password"
+                       type="password" autocomplete="current-password">
+            </div>
+
+            <button class="btn btn-primary" id="loginBtn" type="submit">登录</button>
+        </form>
+
+        <p class="login-foot">
+            <a href="/client">← 回到站点首页</a>
+        </p>
+    </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>

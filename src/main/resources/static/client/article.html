@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 标题会被 main.js 改成真实文章标题，这里只是加载期间的占位 -->
+    <title>文章 · WN</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+
+<body data-page="article">
+
+<!-- 左边这一栏和列表页完全一样，而且是同一份 main.js 渲染的。
+     不做成"只有列表页有"的原因：从列表点进文章时左栏突然消失，
+     会让人以为跳到了另一个站 -->
+<aside class="music-rail">
+    <div class="track" id="musicTrack"></div>
+</aside>
+
+<div class="page-main">
+
+    <!-- 阅读进度条。文章越长越有用 -->
+    <div class="read-progress" id="readProgress"></div>
+
+    <header class="topbar">
+        <div class="container topbar-inner">
+            <a class="brand" href="/client">
+                <span class="brand-dot"></span>
+                WN
+            </a>
+            <nav class="topbar-links">
+                <a href="/client/main">全部文章</a>
+                <a href="/client">返回首页</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- 文章内容由 main.js 从地址栏里的 slug 去 /client/api/articles/{slug} 取。
+             注意地址 /client/main/xxx 里的 xxx 是"文章短名"，不是数字 id -->
+        <div id="articleBox"></div>
+    </main>
+
+    <footer class="site-foot container">
+        <p>WN · 个人站点</p>
+    </footer>
+
+</div>
+
+<audio id="audioPlayer" preload="none"></audio>
+
+<script src="/js/common.js"></script>
+<script src="/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文章管理 · WN 后台</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/admin.css">
+</head>
+
+<body data-page="articles">
+
+<header class="admin-bar" id="adminBar"></header>
+
+<main class="container-wide admin-main">
+    <div class="admin-head">
+        <div>
+            <h1>文章管理</h1>
+            <p class="sub">草稿和已发布的都在这里</p>
+        </div>
+
+        <!--
+          筛选用普通链接而不是按钮：这样筛选条件会落到地址栏上
+          （?status=1），刷新页面不丢，也能直接收藏。
+          哪个是当前项由 admin.js 对比地址栏决定，加上 .is-active。
+        -->
+        <div class="row-wrap">
+            <div class="filter-group">
+                <a href="/admin/work/articles">全部</a>
+                <a href="/admin/work/articles?status=1">已发布</a>
+                <a href="/admin/work/articles?status=0">草稿</a>
+            </div>
+            <a class="btn btn-primary btn-sm" href="/admin/work/articles/new">写新文章</a>
+        </div>
+    </div>
+
+    <!-- 表格由 admin.js 填 -->
+    <div id="articleTableBox"></div>
+</main>
+
+<script src="/js/common.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>
