@@ -18,6 +18,13 @@
 :root {
     /* ---- 浅色主题 ---- */
     --bg: #f4f5f7;
+
+    /* 后台不要前台的深色光晕背景。
+       common.css 里 body 用的是 var(--bg-image)，
+       前台在 main.css 里把它设成了渐变+噪点；
+       后台是浅色底，叠上深色光晕只会显得脏，所以显式清空。
+       这一行就是"同一个 body 规则服务两套主题"的收口处。 */
+    --bg-image: none;
     --bg-soft: #ffffff;
     --surface: #ffffff;
     --surface-hover: #f0f1f4;
@@ -365,6 +372,121 @@
 }
 
 /* ============================================================
+   5.1 环形仪表（服务器状态页的主视觉）
+   ------------------------------------------------------------
+   为什么改成环形而不是继续用横条：
+     横条只能表达"占了多少"，四根横条并排时彼此没有共同的标尺，
+     眼睛要在四个不同的长度之间来回比较。
+     环形是同一个圆心、同一个半径，四块放在一起就是四张脸，
+     哪块快满了（接近 12 点回到起点）一眼就能看出来。
+     这是"可视化"和"摆几个数字"的区别。
+
+   实现上不引任何图表库：一个 SVG 圆环 + stroke-dasharray 就够了。
+     周长 C = 2πr，把 dasharray 设成 C，
+     再用 dashoffset = C × (1 - 占用率) 就能画出任意比例的弧。
+     圆环默认从 3 点方向开始画，所以整体 rotate(-90deg) 挪到 12 点。
+   ============================================================ */
+.gauge-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.gauge-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 14px 16px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+}
+
+.gauge {
+    position: relative;
+    width: 106px;
+    height: 106px;
+}
+
+.gauge svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.gauge-track {
+    fill: none;
+    stroke: #eceef1;
+    stroke-width: 9;
+}
+
+.gauge-fill {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 9;
+    stroke-linecap: round;
+    transition: stroke-dashoffset .8s cubic-bezier(.22, 1, .36, 1);
+}
+
+/* 和横条用同一套告警分档：80% 黄、92% 红 */
+.gauge.is-warn .gauge-fill {
+    stroke: var(--warn);
+}
+
+.gauge.is-danger .gauge-fill {
+    stroke: var(--danger);
+}
+
+.gauge-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    pointer-events: none;
+}
+
+.gauge-center b {
+    font-size: 20px;
+    font-weight: 650;
+    line-height: 1;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+}
+
+.gauge-center b small {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-faint);
+}
+
+.gauge-center span {
+    font-size: 10.5px;
+    color: var(--text-faint);
+}
+
+.gauge-name {
+    margin-top: 13px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+}
+
+.gauge-detail {
+    margin-top: 3px;
+    font-size: 11.5px;
+    line-height: 1.55;
+    color: var(--text-dim);
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
    6. 连通性指示（MySQL / Redis 通不通）
    ============================================================ */
 .conn-item {
@@ -408,6 +530,52 @@
     font-size: 12.5px;
     color: var(--text-dim);
     word-break: break-all;
+}
+
+/* ============================================================
+   6.5 状态徽章 / 分页（用户管理页用）
+   ============================================================ */
+.badge {
+    display: inline-block;
+    padding: 2px 9px;
+    font-size: 12px;
+    line-height: 1.6;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+/* 颜色用的是后台主题里压暗过的那三个状态色（admin.css 顶部定义），
+   用低透明度做底、纯色做字 —— 浅色背景上这样才不刺眼 */
+.badge-ok {
+    color: var(--ok);
+    background: hsla(150, 48%, 38%, 0.12);
+}
+
+.badge-danger {
+    color: var(--danger);
+    background: hsla(355, 62%, 50%, 0.12);
+}
+
+.badge-warn {
+    color: var(--warn);
+    background: hsla(32, 72%, 44%, 0.12);
+}
+
+.pager {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 18px;
+    font-size: 13.5px;
+}
+
+.pager a {
+    color: var(--accent);
+}
+
+.pager-info {
+    color: var(--text-dim);
 }
 
 /* ============================================================

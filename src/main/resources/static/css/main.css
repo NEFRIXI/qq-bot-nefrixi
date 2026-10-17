@@ -11,6 +11,33 @@
    ============================================================ */
 
 /* ============================================================
+   0. 页面背景
+   ------------------------------------------------------------
+   纯 #1a1620 大面积铺开，看起来像一块"死掉的色板"——
+   没有光、没有层次，长文章读久了会觉得页面在往下沉。
+
+   这里用三层径向渐变造出"光源"：
+     左上偏品红（和前台的 --accent 同族）
+     右上偏紫（--accent-alt）
+     底部再补一层暖光，避免页面下半截发闷
+   最上面再叠一层极淡的噪点，作用是消除渐变的"塑料感"——
+   真实的光面总是带一点点颗粒。
+
+   噪点用内联 SVG（feTurbulence 生成），不引任何外部图片：
+   项目一贯的零外部依赖，断网也能正常显示。
+
+   色号刻意都用很低的不透明度（0.08~0.11）：这是背景，
+   它该在余光里，不该和正文抢注意力。
+   ============================================================ */
+:root {
+    --bg-image:
+        radial-gradient(circle at 12% -10%, hsla(324, 68%, 62%, 0.11), transparent 55%),
+        radial-gradient(circle at 88% 4%,  hsla(288, 60%, 66%, 0.10), transparent 52%),
+        radial-gradient(circle at 50% 118%, hsla(324, 50%, 48%, 0.08), transparent 60%),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
+}
+
+/* ============================================================
    1. 顶部栏
    ============================================================ */
 .topbar {
@@ -1102,4 +1129,339 @@ body {
     .read-progress {
         left: 0;
     }
+}
+
+/* ============================================================
+   14. 登录 / 注册页
+   ------------------------------------------------------------
+   用的都是 common.css 里的构件（btn / card / field / input），
+   这里只加这张卡片特有的东西，不重新发明按钮和输入框。
+   ============================================================ */
+.auth-card {
+    max-width: 420px;
+    margin: 48px auto;
+    padding: 32px 28px 24px;
+}
+
+.auth-title {
+    font-size: 22px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.auth-sub {
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--text-dim);
+    text-align: center;
+}
+
+/* 登录 / 注册切换：做成分段控件，而不是两个独立页面。
+   点错了不用后退，状态也留在原处 */
+.auth-tabs {
+    display: flex;
+    gap: 6px;
+    margin: 22px 0 20px;
+    padding: 4px;
+    background: var(--bg-soft);
+    border-radius: 999px;
+}
+
+.auth-tab {
+    flex: 1;
+    padding: 8px;
+    font-size: 13.5px;
+    color: var(--text-dim);
+    background: none;
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background .2s ease, color .2s ease;
+}
+
+.auth-tab.is-active {
+    color: #fff;
+    background: var(--accent);
+}
+
+.auth-form .field {
+    margin-bottom: 16px;
+}
+
+.auth-submit {
+    width: 100%;
+    margin-top: 8px;
+}
+
+.auth-foot {
+    margin-top: 18px;
+    font-size: 13px;
+    text-align: center;
+}
+
+/* ============================================================
+   15. 评论区
+   ------------------------------------------------------------
+   两层结构（楼 + 楼中楼）在视觉上靠左边那条竖线区分：
+   楼中楼整体缩进、加一条淡边，眼睛能看出"这是挂在上面那条下面的"。
+
+   white-space: pre-wrap 是必要的 —— 用户换行应当保留，
+   否则多行评论会被压成一段。
+   ============================================================ */
+.comments-section {
+    margin: 48px 0 40px;
+    padding-top: 28px;
+    border-top: 1px solid var(--border);
+}
+
+.comments-title {
+    margin-bottom: 18px;
+    font-size: 17px;
+    font-weight: 600;
+}
+
+.cm-list,
+.cm-replies {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.cm-item {
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.cm-item:last-child {
+    border-bottom: 0;
+}
+
+.cm-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+
+.cm-author {
+    font-size: 14px;
+    color: var(--text);
+}
+
+.cm-time {
+    font-size: 12px;
+    color: var(--text-faint);
+}
+
+.cm-text {
+    margin-top: 6px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text-dim);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* "回复 @某某" 用次要强调色，和正文区分开 */
+.cm-reply-to {
+    color: var(--accent-alt);
+}
+
+.cm-act {
+    margin-top: 6px;
+    padding: 0;
+    font-size: 12.5px;
+    color: var(--text-faint);
+    background: none;
+    border: 0;
+    cursor: pointer;
+}
+
+.cm-act:hover {
+    color: var(--accent);
+}
+
+/* 楼中楼：左缩进 + 一条竖线 */
+.cm-replies {
+    margin-top: 12px;
+    padding-left: 18px;
+    border-left: 2px solid var(--border);
+}
+
+.cm-reply {
+    padding: 8px 0;
+}
+
+.cm-reply .cm-text {
+    font-size: 13.5px;
+}
+
+.cm-compose {
+    margin-bottom: 22px;
+}
+
+.cm-input {
+    width: 100%;
+    min-height: 76px;
+    resize: vertical;
+    font-family: inherit;
+    line-height: 1.6;
+}
+
+.cm-compose-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.cm-replying {
+    font-size: 12.5px;
+    color: var(--accent-alt);
+    cursor: pointer;
+}
+
+.cm-login-tip {
+    margin-bottom: 20px;
+    font-size: 14px;
+    color: var(--text-dim);
+}
+
+/* ============================================================
+   16. 顶栏的用户状态
+   ------------------------------------------------------------
+   内容由 user.js 动态填进 #userBox：
+   未登录是"登录"链接，已登录是"昵称 + 退出"。
+   ============================================================ */
+.topbar-user-box {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.topbar-user {
+    font-size: 13.5px;
+    color: var(--text-dim);
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.topbar-logout {
+    padding: 0;
+    font-size: 13px;
+    color: var(--text-faint);
+    background: none;
+    border: 0;
+    cursor: pointer;
+}
+
+.topbar-logout:hover {
+    color: var(--accent);
+}
+
+/* ============================================================
+   17. 写文章页
+   ------------------------------------------------------------
+   正文框用等宽字体：这一栏写的是 Markdown 源码，
+   等宽字体下 # 和 ** 这些符号才对得齐，读起来像代码编辑器。
+   ============================================================ */
+.post-card {
+    padding: 24px;
+}
+
+.post-content {
+    width: 100%;
+    min-height: 360px;
+    resize: vertical;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 1.75;
+}
+
+.post-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 18px;
+}
+
+.post-actions-hint {
+    font-size: 13px;
+    color: var(--text-faint);
+}
+
+/* 没登录时的挡板 */
+.post-gate {
+    padding: 40px 24px;
+    text-align: center;
+}
+
+.post-gate-text {
+    margin-bottom: 16px;
+    color: var(--text-dim);
+}
+
+/* ---- 我发过的 ---- */
+.my-posts {
+    margin-top: 44px;
+}
+
+.my-posts-title {
+    margin-bottom: 14px;
+    font-size: 17px;
+    font-weight: 600;
+}
+
+.my-post-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.my-post {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.my-post:last-child {
+    border-bottom: 0;
+}
+
+.my-post-link {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14.5px;
+    color: var(--text);
+}
+
+.my-post-link:hover {
+    color: var(--accent);
+}
+
+.my-post-time {
+    flex: none;
+    font-size: 12px;
+    color: var(--text-faint);
+}
+
+.my-post-del {
+    flex: none;
+    padding: 0;
+    font-size: 12.5px;
+    color: var(--text-faint);
+    background: none;
+    border: 0;
+    cursor: pointer;
+}
+
+.my-post-del:hover {
+    color: var(--danger);
 }

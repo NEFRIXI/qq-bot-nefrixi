@@ -122,4 +122,35 @@ public class ClientPageController {
     public String articlePage(@PathVariable String slug) {
         return "forward:/client/article.html";
     }
+
+    /**
+     * 普通用户的登录 / 注册页。
+     *
+     * <p>和后台的 {@code /admin/login} 是<b>两个不同的入口</b>：
+     * 那边登录的是管理员（能删文章、看服务器状态），
+     * 这边登录的是访客（能发帖、评论）。两套身份互不相通，
+     * 页面也不该混用 —— 让普通用户看到"管理员登录"，
+     * 只会让人以为自己走错了地方。
+     *
+     * @return 转发到登录注册页
+     */
+    @GetMapping("/client/auth")
+    public String authPage() {
+        return "forward:/client/auth.html";
+    }
+
+    /**
+     * 写文章页（普通用户）。
+     *
+     * <p>页面本身是公开可打开的 —— 真正拦人的是接口。
+     * 未登录的人打开它只会看到"发帖需要先登录"，
+     * 而不是吃一个 401 白屏。这和项目里"页面不设防、接口才设防"
+     * 的一贯做法一致（见 {@code BlogWebConfig} 的注释）。
+     *
+     * @return 转发到写文章页
+     */
+    @GetMapping("/client/post")
+    public String postPage() {
+        return "forward:/client/post.html";
+    }
 }

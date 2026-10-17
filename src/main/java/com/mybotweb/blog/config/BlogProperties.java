@@ -46,6 +46,23 @@ public class BlogProperties {
     private Page page = new Page();
 
     /**
+     * 是否信任反向代理传来的 {@code X-Forwarded-For}。
+     *
+     * <p><b>默认关闭，这是安全默认。</b>
+     *
+     * <p>这个头是客户端可以伪造的。如果前面<b>没有</b>代理却信任它，
+     * 攻击者填个假 IP 就能绕开"按 IP 限流"。反过来，配了 Nginx
+     * 却不开这个开关，所有人会共享代理的 IP —— 一个人刷就把全网挡住。
+     *
+     * <p>所以它必须由部署者根据实际情况显式决定，不能猜。
+     * 详见 {@link com.mybotweb.security.ClientIpResolver}。
+     */
+    private boolean trustProxy = false;
+
+    /** 限流参数，对应 {@code app.blog.rate-limit.*} */
+    private RateLimit rateLimit = new RateLimit();
+
+    /**
      * 初始管理员，对应 {@code app.blog.admin.*}
      */
     @Data
@@ -120,5 +137,42 @@ public class BlogProperties {
          * 而不是报错 —— 报错会让正常的翻页脚本因为一个小改动就崩掉。
          */
         private int maxSize = 50;
+    }
+
+    /**
+     * 限流参数，对应 {@code app.blog.rate-limit.*}。
+     *
+     * <p>统一用"每个 IP 每分钟多少条 / 多少分钟"这种口径，
+     * 而不是抽象成"速率 + 桶容量"—— 后者配置起来要想半天，
+     * 这里要调的就是一句人话："同一个 IP 一分钟最多注册几个号"。
+     *
+     * <p>全部设成 {@code <= 0} 可以关闭对应限流（调试时用，生产别这么配）。
+     */
+    @Data
+    public static class RateLimit {
+
+        /**
+         * 同一 IP 每分钟最多注册几个账号。
+         *
+         * <p>5 这个值考虑的是：正常用户不可能一分钟注册 5 个号，
+         * 而批量注册脚本会一直打。真正的注册高峰来自分享链接，
+         * 那时就算触发了，也只是让后来的人等一分钟 —— 代价可以接受。
+         */
+        private int registerPerMinute = 5;
+
+        /**
+         * 同一 IP 每分钟最多尝试登录几次。
+         *
+         * <p>注意这和"同一个账号错 5 次就锁"是<b>两套独立机制</b>：
+         * 前者防"一个 IP 扫很多账号"，后者防"盯着一个账号试"。
+         * 少了任何一个都有漏洞。
+         */
+        private int loginPerMinute = 10;
+
+        /** 同一用户每分钟最多发几条评论 */
+        private int commentPerMinute = 20;
+
+        /** 同一用户每小时最多发几篇帖子 */
+        private int postPerHour = 10;
     }
 }

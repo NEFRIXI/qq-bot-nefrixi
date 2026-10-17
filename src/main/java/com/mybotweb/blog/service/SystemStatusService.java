@@ -6,6 +6,7 @@ import com.mybotweb.blog.entity.Article;
 import com.mybotweb.blog.entity.ArticleStatus;
 import com.mybotweb.blog.vo.ArticleRankItemVo;
 import com.mybotweb.blog.vo.ArticleStatsVo;
+import com.mybotweb.blog.vo.ClientStatusVo;
 import com.mybotweb.blog.vo.SystemStatusVo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Service;
 import javax.sql.DataSource;
 import java.io.File;
 import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -104,6 +106,54 @@ public class SystemStatusService {
     }
 
     /**
+     * 前台首页用的轻量状态 —— 只有"活着没有、活了多久、内存吃了多少"。
+     *
+     * <p><b>和 {@link #collectStatus()} 的差别</b>
+     *
+     * <p>这里<b>不连数据库、不连 Redis、不读磁盘</b>。原因有两个：
+     * <ul>
+     *   <li>那些是内部诊断信息，不能出现在任何人免登录就能看的首页上</li>
+     *   <li>{@code collectStatus()} 里的 MySQL 探测在库没起时要等连接超时
+     *       （最长 10 秒），首页每次刷新都背着这个代价不合理</li>
+     * </ul>
+     *
+     * <p>所以这里只做纯本地读取，耗时在毫秒级。
+     *
+     * @return 轻量状态
+     */
+    public ClientStatusVo collectClientStatus() {
+        ClientStatusVo vo = new ClientStatusVo();
+        vo.setOnline(true);
+
+        // ---- 运行时长 ----
+        long uptimeSeconds = ManagementFactory.getRuntimeMXBean().getUptime() / 1000L;
+        vo.setUptimeSeconds(uptimeSeconds);
+        vo.setUptimeText(formatUptime(uptimeSeconds));
+
+        // ---- JVM 堆占用 ----
+        Runtime runtime = Runtime.getRuntime();
+        long heapUsed = runtime.totalMemory() - runtime.freeMemory();
+        vo.setJvmPercent(percent(heapUsed, runtime.maxMemory()));
+
+        // ---- 整机内存占用 ----
+        var osBean = ManagementFactory.getOperatingSystemMXBean();
+        if (osBean instanceof com.sun.management.OperatingSystemMXBean sunOsBean) {
+            long total = sunOsBean.getTotalMemorySize();
+            // 用 available 而不是 free，理由见 readAvailableMemory()
+            long available = readAvailableMemory(sunOsBean);
+
+            vo.setMemoryTotalMb(total / BYTES_PER_MB);
+            vo.setMemoryUsedMb((total - available) / BYTES_PER_MB);
+            vo.setMemoryPercent(percent(total - available, total));
+        } else {
+            // 拿不到就给 -1，前端显示 "--"，别用 0 冒充"完全空闲"
+            vo.setMemoryPercent(-1);
+        }
+
+        return vo;
+    }
+
+    /**
      * 应用自身的信息。
      */
     private void fillApplicationInfo(SystemStatusVo vo) {
@@ -135,6 +185,16 @@ public class SystemStatusService {
         vo.setJvmMaxMb(max / BYTES_PER_MB);
         vo.setJvmUsagePercent(percent(used, max));
         vo.setJavaVersion(System.getProperty("java.version"));
+
+        // 线程数。取不到就当 0（这个类的规矩是"探测失败也不抛异常"），
+        // 前端看到 0 会显示"—"，不会误报成"线程池空着"
+        try {
+            ThreadMXBean threadBean = ManagementFactory.getThreadMXBean();
+            vo.setThreadCount(threadBean.getThreadCount());
+            vo.setThreadPeakCount(threadBean.getPeakThreadCount());
+        } catch (Exception e) {
+            log.debug("读取线程数失败：{}", e.getMessage());
+        }
     }
 
     /**

@@ -2,6 +2,7 @@ package com.mybotweb.blog.auth;
 
 import com.mybotweb.blog.config.BlogProperties;
 import com.mybotweb.blog.entity.AdminUser;
+import com.mybotweb.blog.entity.AppUser;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -59,6 +60,32 @@ public class JwtTokenProvider {
 
     /** 载荷里"显示名"这一项的键名 */
     public static final String CLAIM_NICKNAME = "nickname";
+
+    /**
+     * 载荷里"这份令牌代表哪种身份"的键名。
+     *
+     * <p>═══════════════════════════════════════════════════════
+     * <p><b>为什么必须有这一项</b>
+     *
+     * <p>管理员和普通用户用的是<b>同一个签名密钥</b>（同一个应用，
+     * 没必要维护两套密钥）。如果没有类型标记，两份令牌在密码学上
+     * 完全等价 —— 只靠载荷里有没有 {@code uid} 之类去猜身份，
+     * 很容易在某处判断漏了，把普通用户令牌当成管理员令牌放行。
+     *
+     * <p>显式写上 type，拦截器就能一句话拒绝错类型的令牌：
+     * 用户接口只认 {@link #TYPE_USER}，后台接口只认 {@link #TYPE_ADMIN}。
+     *
+     * <p><b>兼容性</b>：改动之前签发的管理员令牌里没有这一项。
+     * {@link #toPrincipal} 不检查 type（它本来就只处理后台），
+     * 所以老令牌仍然能用，不会把已登录的会话踢掉。
+     */
+    public static final String CLAIM_TYPE = "type";
+
+    /** {@link #CLAIM_TYPE} 的取值：管理员 */
+    public static final String TYPE_ADMIN = "ADMIN";
+
+    /** {@link #CLAIM_TYPE} 的取值：普通用户 */
+    public static final String TYPE_USER = "USER";
 
     /**
      * HS256 要求的最小密钥长度：256 位 = 32 字节。
@@ -148,6 +175,8 @@ public class JwtTokenProvider {
                 .setSubject(user.getUsername())
                 .claim(CLAIM_UID, user.getId())
                 .claim(CLAIM_NICKNAME, user.getNickname())
+                // 标明身份类型，用户接口和后台接口各自只认自己那一种
+                .claim(CLAIM_TYPE, TYPE_ADMIN)
                 // jti 是 JWT 标准字段，一个随机唯一标识。
                 // 它就是 Redis 里那条记录的主键，登出时靠它定位要删哪一条
                 .setId(tokenId)
@@ -197,6 +226,67 @@ public class JwtTokenProvider {
         principal.setNickname(claims.get(CLAIM_NICKNAME, String.class));
         principal.setTokenId(claims.getId());
         return principal;
+    }
+
+    // ========================================================
+    // 普通用户令牌
+    //
+    // 和管理员令牌共用同一个签名密钥，靠 CLAIM_TYPE 区分。
+    // 两段代码刻意不共用方法：共用就得传"这是哪种用户"的参数，
+    // 一旦传错，签出来的令牌就是错身份的 —— 分开写，想混用都混不了。
+    // ========================================================
+
+    /**
+     * 给一个普通用户签发新令牌。
+     *
+     * @param user    数据库里查出来的用户
+     * @param tokenId 令牌 id，由调用方生成（登记 Redis 会话时要用同一个）
+     * @return 令牌字符串
+     */
+    public String createUserToken(AppUser user, String tokenId) {
+        Date now = new Date();
+        Date expiry = new Date(now.getTime() + getExpireSeconds() * 1000L);
+
+        return Jwts.builder()
+                .setSubject(user.getUsername())
+                .claim(CLAIM_UID, user.getId())
+                .claim(CLAIM_NICKNAME, user.getNickname())
+                .claim(CLAIM_TYPE, TYPE_USER)
+                .setId(tokenId)
+                .setIssuedAt(now)
+                .setExpiration(expiry)
+                .signWith(signingKey, SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    /**
+     * 从载荷还原出当前登录用户。
+     *
+     * @param claims 已校验过的载荷
+     * @return 用户上下文对象
+     */
+    public UserPrincipal toUserPrincipal(Claims claims) {
+        UserPrincipal principal = new UserPrincipal();
+        Number uid = claims.get(CLAIM_UID, Number.class);
+        principal.setId(uid == null ? null : uid.longValue());
+        principal.setUsername(claims.getSubject());
+        principal.setNickname(claims.get(CLAIM_NICKNAME, String.class));
+        principal.setTokenId(claims.getId());
+        return principal;
+    }
+
+    /**
+     * 取令牌的身份类型。
+     *
+     * <p>没有这一项时返回 {@code null} —— 那是改动之前签发的老管理员令牌。
+     * 用户拦截器用它把老令牌和非用户令牌一起拒掉：
+     * 一个老的后台令牌不应该能调发帖接口。
+     *
+     * @param claims 已校验过的载荷
+     * @return {@code ADMIN} / {@code USER}，或 {@code null}
+     */
+    public String typeOf(Claims claims) {
+        return claims.get(CLAIM_TYPE, String.class);
     }
 
     /**

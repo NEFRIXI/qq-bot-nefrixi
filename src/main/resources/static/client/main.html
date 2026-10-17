@@ -36,7 +36,11 @@
             </a>
             <nav class="topbar-links">
                 <a href="/client/main">文章</a>
+                <a href="/client/post">写文章</a>
                 <a href="/client">返回首页</a>
+                <!-- 用户登录状态由 user.js 填这里：
+                     未登录显示"登录"，已登录显示"昵称 + 退出" -->
+                <span class="topbar-user-box" id="userBox"></span>
             </nav>
         </div>
     </header>
@@ -71,5 +75,6 @@
 
 <script src="/js/common.js"></script>
 <script src="/js/main.js"></script>
+<script src="/js/user.js"></script>
 </body>
 </html>

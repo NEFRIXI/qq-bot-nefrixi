@@ -124,4 +124,17 @@ public class AdminPageController {
     public String statsPage() {
         return "forward:/admin/stats.html";
     }
+
+    /**
+     * 用户管理页：前台注册的普通用户列表，可封禁 / 解封。
+     *
+     * <p>路径前缀 {@code /admin/work} 是项目约定（见类注释）：
+     * 所有"管理操作"都挂在这一层下面，和登录页这类"后台自己的东西"分开。
+     *
+     * @return 转发到用户管理页
+     */
+    @GetMapping("/admin/work/users")
+    public String usersPage() {
+        return "forward:/admin/users.html";
+    }
 }

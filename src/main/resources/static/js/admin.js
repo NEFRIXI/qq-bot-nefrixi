@@ -21,6 +21,7 @@
     const NAV_LINKS = [
         { href: '/admin', text: '概览' },
         { href: '/admin/work/articles', text: '文章管理' },
+        { href: '/admin/work/users', text: '用户管理' },
         { href: '/admin/work/stats', text: '访问统计' },
         { href: '/admin/work/system', text: '服务器状态' }
     ];
@@ -56,6 +57,9 @@
                 break;
             case 'stats':
                 initStatsPage();
+                break;
+            case 'users':
+                initUsersPage();
                 break;
             default:
                 // 页面忘了写 data-page。不报错，但也不做任何事 ——
@@ -558,76 +562,107 @@
         }
     }
 
+    /** 环形仪表的半径与周长。SVG 的 viewBox 是 100×100，圆心在 (50,50) */
+    const GAUGE_RADIUS = 42;
+    const GAUGE_CIRCUM = 2 * Math.PI * GAUGE_RADIUS;      // ≈ 263.89
+
     function renderSystemStatus(box, s) {
         box.innerHTML = ''
-            // ---- 第一排：内存和磁盘 ----
-            + '<div class="stat-grid">'
-            +   meterCard('JVM 堆内存',
-                    s.jvmUsedMb + ' / ' + s.jvmMaxMb, 'MB', s.jvmUsagePercent)
-            +   meterCard('系统内存',
-                    s.systemUsedMemoryMb + ' / ' + s.systemTotalMemoryMb, 'MB',
-                    s.systemMemoryUsagePercent)
-            +   meterCard('磁盘',
-                    s.diskUsedGb + ' / ' + s.diskTotalGb, 'GB', s.diskUsagePercent)
-            +   cpuCard(s)
+
+            // ---- 第一排：四个环形仪表（有"占比"的指标） ----
+            + '<div class="gauge-grid">'
+            +   gaugeCard('JVM 堆内存', s.jvmUsagePercent,
+                    s.jvmUsedMb + ' / ' + s.jvmMaxMb + ' MB', '按堆上限')
+            +   gaugeCard('系统内存', s.systemMemoryUsagePercent,
+                    s.systemUsedMemoryMb + ' / ' + s.systemTotalMemoryMb + ' MB',
+                    '可用 ' + s.systemFreeMemoryMb + ' MB')
+            +   gaugeCard('CPU 负载', s.cpuLoadPercent,
+                    s.cpuCores + ' 核', '整机占用')
+            +   gaugeCard('磁盘', s.diskUsagePercent,
+                    s.diskUsedGb + ' / ' + s.diskTotalGb + ' GB',
+                    '剩余 ' + s.diskUsableGb + ' GB')
             + '</div>'
 
-            // ---- 第二排：中间件连通性 ----
+            // ---- 第二排：没有"占比"可画、只有绝对值的计数类指标 ----
+            + '<div class="stat-grid">'
+            +   valueCard('线程数', s.threadCount || '—',
+                    '历史峰值 ' + (s.threadPeakCount || '—') + ' 个')
+            +   valueCard('登录会话', s.activeSessions + ' 个', '来自 Redis')
+            +   valueCard('已运行', s.uptimeText || '—', '自上次启动')
+            + '</div>'
+
+            // ---- 第三排：中间件连通性 ----
             + '<div class="card">'
             + '  <div class="card-title">服务连通性</div>'
             +    connItem('MySQL', s.mysqlOk, s.mysqlMessage)
             +    connItem('Redis', s.redisOk, s.redisMessage)
             + '</div>'
 
-            // ---- 第三排：运行信息 ----
+            // ---- 第四排：运行信息 ----
+            // 只保留卡片里没有的项。已运行/CPU 核心/会话数上面已经出现过了，
+            // 同一屏重复显示一遍只会让人怀疑哪个才是准的
             + '<div class="card">'
             + '  <div class="card-title">运行信息</div>'
             + '  <table class="table">'
             + '    <tbody>'
             +       kvRow('应用名', s.applicationName)
-            +       kvRow('已运行', s.uptimeText)
             +       kvRow('服务器时间', formatTime(s.serverTime))
             +       kvRow('Java 版本', s.javaVersion)
             +       kvRow('操作系统', s.osName)
-            +       kvRow('CPU 核心', s.cpuCores + ' 核')
             +       kvRow('磁盘路径', s.diskPath)
             +       kvRow('博客开关', s.blogEnabled ? '已开启' : '已关闭')
-            +       kvRow('当前登录会话', s.activeSessions + ' 个')
             + '    </tbody>'
             + '  </table>'
             + '</div>';
     }
 
     /**
-     * 带进度条的数字卡片。
+     * 环形仪表卡片。
      *
-     * 进度条的颜色按用量分档：超过 80% 变黄、超过 92% 变红 ——
-     * 光看数字"3.1 / 3.6 GB"要反应一下，颜色不用。
+     * <p>画法：一个 SVG 圆环，dasharray 设成整个周长，
+     * dashoffset 设成「周长 × (1 - 占用率)」，露出来的那段弧就是占用比例。
+     *
+     * <p>CPU 在部分容器/虚拟机环境里拿不到，后端给 -1。
+     * 这种情况显示 "--" 而不是 0% —— 0% 会让人误以为机器完全空闲。
+     *
+     * @param name     指标名，如「JVM 堆内存」
+     * @param pctValue 占用率 0~100；小于 0 表示取不到
+     * @param detail   圆环下方的明细，如「512 / 2048 MB」
+     * @param note     圆环中间的小字，如「按堆上限」
      */
-    function meterCard(label, value, unit, percentValue) {
-        const pct = (percentValue === null || percentValue === undefined) ? 0 : percentValue;
+    function gaugeCard(name, pctValue, detail, note) {
+        const unknown = (pctValue === null || pctValue === undefined || pctValue < 0);
+        const pct = unknown ? 0 : Math.min(Math.max(pctValue, 0), 100);
         const level = pct >= 92 ? ' is-danger' : (pct >= 80 ? ' is-warn' : '');
+        const offset = GAUGE_CIRCUM * (1 - pct / 100);
+        const shown = unknown ? '--' : Math.round(pct);
 
         return ''
-            + '<div class="stat-card">'
-            + '  <div class="label">' + escapeHtml(label) + '</div>'
-            + '  <div class="value">' + escapeHtml(value)
-            +      ' <small>' + escapeHtml(unit) + '</small></div>'
-            + '  <div class="sub">占用 ' + pct + '%</div>'
-            + '  <div class="meter' + level + '"><i style="width:' + Math.min(pct, 100) + '%"></i></div>'
+            + '<div class="gauge-card">'
+            + '  <div class="gauge' + level + '">'
+            + '    <svg viewBox="0 0 100 100" aria-hidden="true">'
+            + '      <circle class="gauge-track" cx="50" cy="50" r="' + GAUGE_RADIUS + '"/>'
+            + '      <circle class="gauge-fill" cx="50" cy="50" r="' + GAUGE_RADIUS + '"'
+            + '              stroke-dasharray="' + GAUGE_CIRCUM.toFixed(2) + '"'
+            + '              stroke-dashoffset="' + offset.toFixed(2) + '"/>'
+            + '    </svg>'
+            + '    <div class="gauge-center">'
+            + '      <b>' + shown + (unknown ? '' : '<small>%</small>') + '</b>'
+            + '      <span>' + escapeHtml(note) + '</span>'
+            + '    </div>'
+            + '  </div>'
+            + '  <div class="gauge-name">' + escapeHtml(name) + '</div>'
+            + '  <div class="gauge-detail">' + escapeHtml(detail) + '</div>'
             + '</div>';
     }
 
-    /** CPU 卡片单独写：它取不到值时要显示"--"而不是 0% */
-    function cpuCard(s) {
-        const unknown = (s.cpuLoadPercent === null || s.cpuLoadPercent < 0);
+    /** 纯数值卡片：线程数、会话数、运行时长这类没有"占比"可画的指标 */
+    function valueCard(label, value, sub) {
         return ''
             + '<div class="stat-card">'
-            + '  <div class="label">CPU 使用率</div>'
-            + '  <div class="value">' + (unknown ? '--' : s.cpuLoadPercent + ' <small>%</small>') + '</div>'
-            + '  <div class="sub">' + s.cpuCores + ' 核</div>'
-            + (unknown ? '' : '<div class="meter"><i style="width:'
-                + Math.min(s.cpuLoadPercent, 100) + '%"></i></div>')
+            + '  <div class="label">' + escapeHtml(label) + '</div>'
+            + '  <div class="value">' + escapeHtml(String(value)) + '</div>'
+            + '  <div class="sub">' + escapeHtml(sub) + '</div>'
             + '</div>';
     }
 
@@ -646,6 +681,141 @@
         return '<tr><th style="width:150px">' + escapeHtml(key) + '</th>'
             + '<td>' + escapeHtml(value === null || value === undefined ? '—' : String(value))
             + '</td></tr>';
+    }
+
+    /* ========================================================
+       用户管理
+       --------------------------------------------------------
+       只有两个动作：看列表、封禁/解封。
+
+       【为什么不提供"删除用户"】
+       删掉之后他发过的评论和帖子会变成"已注销用户"——数据还在但没法追溯。
+       封禁是可逆的（停用，必要时恢复），历史内容完整保留。
+       真要清理是另一个需要慎重设计的动作，不该顺手放在这张表里。
+       ======================================================== */
+    async function initUsersPage() {
+        const box = $('#usersBox');
+        showLoading(box, '正在读取用户…');
+
+        const refreshBtn = $('#refreshBtn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', function () {
+                loadUsers(box, 1);
+            });
+        }
+
+        await loadUsers(box, 1);
+    }
+
+    /** 拉一页用户并渲染 */
+    async function loadUsers(box, page) {
+        try {
+            const data = await api('/admin/api/users?page=' + page + '&size=20');
+            renderUsers(box, data);
+        } catch (e) {
+            showPageError(box, '用户列表读取失败：' + e.message, function () {
+                loadUsers(box, page);
+            });
+        }
+    }
+
+    /** 渲染表格 + 绑定封禁/解封 + 绑定翻页 */
+    function renderUsers(box, data) {
+        const records = (data && data.records) || [];
+        if (records.length === 0) {
+            box.innerHTML = '<div class="card"><p class="empty">还没有用户注册</p></div>';
+            return;
+        }
+
+        const rows = records.map(function (u) {
+            const banned = (u.status === 1);
+            const badge = banned
+                ? '<span class="badge badge-danger">已封禁</span>'
+                : '<span class="badge badge-ok">正常</span>';
+            const action = banned
+                ? '<button class="btn btn-sm" data-uid="' + u.id + '" data-status="0">解封</button>'
+                : '<button class="btn btn-sm btn-danger" data-uid="' + u.id + '" data-status="1">封禁</button>';
+
+            return ''
+                + '<tr>'
+                + '  <td>' + escapeHtml(u.username) + '</td>'
+                + '  <td>' + escapeHtml(u.nickname || '—') + '</td>'
+                + '  <td>' + badge + '</td>'
+                + '  <td>' + escapeHtml(formatTime(u.createdAt)) + '</td>'
+                + '  <td class="col-actions">' + action + '</td>'
+                + '</tr>';
+        }).join('');
+
+        box.innerHTML = ''
+            + '<div class="table-card">'
+            + '  <table class="table">'
+            + '    <thead>'
+            + '      <tr>'
+            + '        <th>用户名</th><th>昵称</th><th>状态</th><th>注册时间</th>'
+            + '        <th class="col-actions">操作</th>'
+            + '      </tr>'
+            + '    </thead>'
+            + '    <tbody>' + rows + '</tbody>'
+            + '  </table>'
+            + '</div>'
+            + pagerHtml(data);
+
+        // ---- 封禁 / 解封 ----
+        box.querySelectorAll('[data-uid]').forEach(function (btn) {
+            btn.addEventListener('click', async function () {
+                const status = Number(btn.dataset.status);
+                const uid = btn.dataset.uid;
+                const word = (status === 1) ? '封禁' : '解封';
+
+                const tip = (status === 1)
+                    ? '\n\n封禁后他会立刻掉线，并且在解封前无法再登录。'
+                    : '';
+                if (!confirm('确定' + word + '这个用户吗？' + tip)) {
+                    return;
+                }
+
+                btn.disabled = true;
+                try {
+                    await api('/admin/api/users/' + uid + '/status', {
+                        method: 'PATCH',
+                        body: { status: status }
+                    });
+                    toast('已' + word, 'ok');
+                    await loadUsers(box, (data && data.current) || 1);
+                } catch (e) {
+                    toast(word + '失败：' + e.message, 'error');
+                    btn.disabled = false;
+                }
+            });
+        });
+
+        // ---- 翻页 ----
+        box.querySelectorAll('[data-page]').forEach(function (a) {
+            a.addEventListener('click', function (e) {
+                e.preventDefault();
+                loadUsers(box, Number(a.dataset.page));
+            });
+        });
+    }
+
+    /** 简单的上一页/下一页。用户量不大，不做页码条 */
+    function pagerHtml(data) {
+        const pages = (data && data.pages) || 1;
+        const current = (data && data.current) || 1;
+        if (pages <= 1) {
+            return '';
+        }
+
+        let html = '<div class="pager">';
+        if (current > 1) {
+            html += '<a href="#" data-page="' + (current - 1) + '">上一页</a>';
+        }
+        html += '<span class="pager-info">' + current + ' / ' + pages + '</span>';
+        if (current < pages) {
+            html += '<a href="#" data-page="' + (current + 1) + '">下一页</a>';
+        }
+        html += '</div>';
+        return html;
     }
 
     /* ========================================================

@@ -191,13 +191,30 @@ public class ArticleService {
     }
 
     /**
-     * 新建文章。
+     * 新建文章（管理员用）。
      *
      * @param request 文章内容
      * @return 新文章的 id
      * @throws BusinessException 状态值非法、slug 已被占用
      */
     public Long create(ArticleSaveRequest request) {
+        return create(request, null);
+    }
+
+    /**
+     * 新建文章，并记下作者。
+     *
+     * <p><b>为什么要多这一个参数，而不是让调用方 insert 完再 update 一次</b>
+     * 先 insert 再 update 是两次写库，中间那一刻这条文章的作者是空的 ——
+     * 如果此时有人正好在读列表，"作者"字段就会显示成管理员。
+     * 一次写进去就没有这个中间态。
+     *
+     * @param request      文章内容
+     * @param authorUserId 作者的用户 id；{@code null} 表示管理员发的
+     * @return 新文章的 id
+     * @throws BusinessException 状态值非法、slug 已被占用
+     */
+    public Long create(ArticleSaveRequest request, Long authorUserId) {
         validateStatus(request.getStatus());
 
         String slug = resolveSlug(request.getSlug(), null);
@@ -213,6 +230,8 @@ public class ArticleService {
         article.setContentHash(sha256(request.getContent()));
         article.setCreatedAt(now);
         article.setUpdatedAt(now);
+        // 普通用户发的文章记下作者；管理员发的留 null
+        article.setAuthorUserId(authorUserId);
         // 直接以"已发布"保存时，发布时间就是现在
         if (request.getStatus() == ArticleStatus.PUBLISHED) {
             article.setPublishedAt(now);

@@ -31,7 +31,10 @@
             </a>
             <nav class="topbar-links">
                 <a href="/client/main">全部文章</a>
+                <a href="/client/post">写文章</a>
                 <a href="/client">返回首页</a>
+                <!-- 用户登录状态由 user.js 填这里 -->
+                <span class="topbar-user-box" id="userBox"></span>
             </nav>
         </div>
     </header>
@@ -40,6 +43,16 @@
         <!-- 文章内容由 main.js 从地址栏里的 slug 去 /client/api/articles/{slug} 取。
              注意地址 /client/main/xxx 里的 xxx 是"文章短名"，不是数字 id -->
         <div id="articleBox"></div>
+
+        <!-- 评论区。由 user.js 渲染（见那个文件的 initComments）。
+             和 main.js 各管一摊：它画文章，这里画评论，
+             两个文件互不依赖，将来改哪一边都不会牵连另一个 -->
+        <section class="comments-section">
+            <h2 class="comments-title">评论</h2>
+            <!-- 发评论框：登录了才有输入框，没登录显示"登录后可评论" -->
+            <div id="commentFormBox"></div>
+            <div id="commentsBox"></div>
+        </section>
     </main>
 
     <footer class="site-foot container">
@@ -52,5 +65,6 @@
 
 <script src="/js/common.js"></script>
 <script src="/js/main.js"></script>
+<script src="/js/user.js"></script>
 </body>
 </html>

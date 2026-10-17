@@ -69,6 +69,15 @@
     --font: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei",
             "Segoe UI", "Hiragino Sans GB", sans-serif;
     --font-mono: "Cascadia Mono", Consolas, "Courier New", monospace;
+
+    /* ---- 页面背景 ----
+       这里只声明一个空值，具体画面由各主题自己填：
+         main.css   → 深色光晕 + 细噪点（前台）
+         admin.css  → none（后台是浅色，叠深色光晕会脏）
+
+       做成变量的原因就是这一条：同一个 body 规则要服务两套主题，
+       写死背景图的话后台也得跟着改。 */
+    --bg-image: none;
 }
 
 /* ============================================================
@@ -90,7 +99,14 @@ body {
     font-size: 15px;
     line-height: 1.7;
     color: var(--text);
-    background: var(--bg);
+    /* 底色 + 可选背景图。
+       background-attachment: fixed 让背景不随内容滚动 ——
+       长文章往下翻的时候，背景"钉"在那里，不会出现一道一道的接缝 */
+    background-color: var(--bg);
+    background-image: var(--bg-image, none);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    background-size: cover;
     -webkit-font-smoothing: antialiased;
 }
 

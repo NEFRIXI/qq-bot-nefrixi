@@ -1,6 +1,5 @@
 package com.mybotweb.command.impl;
 
-import com.mybotweb.channel.MessageChannel;
 import com.mybotweb.channel.model.QqMessage;
 import com.mybotweb.cloud.InMemoryLocalNodeManager;
 import com.mybotweb.cloud.LocalNodeManager;
@@ -15,14 +14,33 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
+import java.lang.management.ManagementFactory;
+
 /**
  * {@code /status} —— 查看系统当前状态。仅管理员可用。
  *
- * <p>对应规格第 7.3 节：{@code /status} 返回当前策略、本地在线状态、
- * 当前模型、今日调用统计。
+ * <p>═══════════════════════════════════════════════════════════
+ * <p><b>这个命令的输出被精简过一轮，原因记在这里</b>
  *
- * <p>本阶段先实现能实现的部分（角色、通道、模型、可用性），
- * 路由策略和调用统计要等后续阶段，届时在这里补几行即可。
+ * <p>旧版会打印：角色说明、消息通道、路由策略、本次路由、本地节点、
+ * 模型名、接口地址、可用性、当前用户，一共十条带分隔线。
+ * 实际用下来，其中至少一半是废信息：
+ *
+ * <ul>
+ *   <li><b>角色说明</b>（"本机直连腾讯，本地模型负责闲聊"）—— 固定文案，
+ *       第一次看有用，之后每次都占一行</li>
+ *   <li><b>消息通道</b>（"qq"）—— 在 QQ 里问这个，答案只可能是 qq</li>
+ *   <li><b>本次路由</b> 和 <b>路由策略</b> —— 两行说的是同一件事</li>
+ *   <li><b>接口地址</b> —— 内部地址，排查时才需要，不该每次刷出来</li>
+ *   <li><b>当前用户</b> —— 自己发的消息，自己知道是谁</li>
+ * </ul>
+ *
+ * <p>砍掉这些之后补上了<b>资源占用</b>：运行时长、堆内存、整机内存。
+ * 这几项恰恰是旧版没有、而人真的会想知道的 ——
+ * 以前要开网页才能看到，现在在 QQ 里问一句就有。
+ *
+ * <p>想看点细节的时候仍然去后台 {@code /admin/work/system}，
+ * 那里有完整的环形仪表、磁盘和 MySQL/Redis 连通性。
  *
  * <p><b>为什么这条命令只给管理员？</b> 它暴露的是服务端内部结构
  * （用的哪个模型、什么通道、什么角色），对普通用户既没用也没必要知道。
@@ -36,17 +54,12 @@ public class StatusCommand implements CommandHandler {
     /** 应用配置，用来读角色标记等 */
     private final AppProperties appProperties;
 
-    /** 当前生效的消息通道。注入的是接口，具体是哪个实现由配置决定 */
-    private final MessageChannel messageChannel;
-
     /**
      * 算力路由器。
      *
      * <p>注入它而不是 {@code ChatModelClient}：现在本地和云端两个客户端
      * 同时装配（路由器需要两个都看到才能选），所以 {@code ChatModelClient}
      * 这个类型有多个候选 Bean，注入单个会直接启动失败。
-     * 而本命令真正想知道的本来也不是"有哪些客户端"，而是
-     * "当前策略是什么、这次会走谁"——那正是路由器的职责。
      */
     private final ModelRouter modelRouter;
 
@@ -71,13 +84,11 @@ public class StatusCommand implements CommandHandler {
     private final ChatModelClient cloudClient;
 
     public StatusCommand(AppProperties appProperties,
-                         MessageChannel messageChannel,
                          ModelRouter modelRouter,
                          LocalNodeManager localNodeManager,
                          @Qualifier("ollamaChatModelClient") ChatModelClient ollamaClient,
                          @Qualifier("cloudChatModelClient") ChatModelClient cloudClient) {
         this.appProperties = appProperties;
-        this.messageChannel = messageChannel;
         this.modelRouter = modelRouter;
         this.localNodeManager = localNodeManager;
         this.ollamaClient = ollamaClient;
@@ -116,37 +127,83 @@ public class StatusCommand implements CommandHandler {
         AppProperties.Llm llmConfig = appProperties.getLlm();
         RouteStrategy strategy = modelRouter.currentStrategy();
 
+        boolean cloud = "cloud".equalsIgnoreCase(appProperties.getRole());
+        String modelName = cloud
+                ? llmConfig.getCloud().getModel()
+                : llmConfig.getOllama().getModel();
+
         StringBuilder sb = new StringBuilder();
         sb.append("系统状态\n");
-        sb.append("━━━━━━━━━━━━━━━━\n");
-        sb.append("角色　　　：").append(describeRole(appProperties.getRole())).append('\n');
-        sb.append("消息通道　：").append(messageChannel.getType()).append('\n');
-        sb.append("路由策略　：").append(strategy.toDisplayText()).append('\n');
-        sb.append("本次路由　：").append(modelRouter.describeDecision()).append('\n');
-        sb.append("本地节点　：").append(describeLocalNode()).append('\n');
 
-        // 按角色显示对应的模型信息。
-        // 之前是判断 llm.provider，改成 role 之后语义更清楚：
-        // 读到的是"这台机器用哪套算力"，而不是"配置里填了哪个字符串"
-        String role = appProperties.getRole();
-        if ("cloud".equalsIgnoreCase(role)) {
-            sb.append("模型名　　：").append(llmConfig.getCloud().getModel()).append('\n');
-            sb.append("接口　　　：").append(llmConfig.getCloud().getBaseUrl()).append('\n');
-        } else {
-            sb.append("模型名　　：").append(llmConfig.getOllama().getModel()).append('\n');
-            sb.append("Ollama　　：").append(llmConfig.getOllama().getBaseUrl()).append('\n');
-        }
+        sb.append("模型　　：").append(modelName)
+                .append(isActiveProviderAvailable() ? " ✅" : " ❌ 不可用").append('\n');
 
-        // 可用性探测会真的发一次请求（本地探测有 10 秒缓存，云端只查密钥），
-        // 所以放在最后算 —— 万一它慢，前面已经拼好的内容不会白等
-        sb.append("可用性　　：")
-                .append(isActiveProviderAvailable() ? "可用 ✅" : "不可用 ❌")
-                .append("（提供方 ").append(modelRouter.activeProviderName()).append("）").append('\n');
+        sb.append("路由　　：").append(strategy.toDisplayText()).append('\n');
 
-        sb.append("━━━━━━━━━━━━━━━━\n");
-        sb.append("当前用户　：").append(user.toLogTag());
+        sb.append("本地节点：").append(describeLocalNode()).append('\n');
+
+        // 放在最后：前面几项都是瞬时查询，这一项要做一次
+        // getCpuLoad / 读取 meminfo，万一慢，已经拼好的内容不会白等
+        sb.append("资源　　：").append(describeResources());
 
         return sb.toString();
+    }
+
+    /**
+     * 资源占用：运行时长、堆内存、整机内存。
+     *
+     * <p>这里直接读 JVM 的 MXBean，<b>不注入 SystemStatusService</b>。
+     * 原因是那个 Service 依赖 MySQL 数据源和 Redis 模板 ——
+     * 博客功能关闭时这些 Bean 并不存在，而 {@code /status} 是
+     * QQ 侧的命令，跟博客开关没有关系，不该被它连累到启动失败。
+     *
+     * @return 一行可读文本，如 {@code 2 天 5 小时 · 堆 128/512 MB · 内存 42%}
+     */
+    private String describeResources() {
+        StringBuilder sb = new StringBuilder();
+
+        long uptimeSeconds = ManagementFactory.getRuntimeMXBean().getUptime() / 1000L;
+        sb.append(formatUptime(uptimeSeconds));
+
+        Runtime runtime = Runtime.getRuntime();
+        long heapUsedMb = (runtime.totalMemory() - runtime.freeMemory()) / (1024L * 1024L);
+        long heapMaxMb = runtime.maxMemory() / (1024L * 1024L);
+        sb.append(" · 堆 ").append(heapUsedMb).append('/').append(heapMaxMb).append(" MB");
+
+        // 整机内存。取不到就不显示这一截，而不是硬报一个 0%
+        var osBean = ManagementFactory.getOperatingSystemMXBean();
+        if (osBean instanceof com.sun.management.OperatingSystemMXBean sunOsBean) {
+            long total = sunOsBean.getTotalMemorySize();
+            long free = sunOsBean.getFreeMemorySize();
+            if (total > 0) {
+                long percent = Math.round((total - free) * 100.0 / total);
+                sb.append(" · 内存 ").append(percent).append('%');
+            }
+        }
+
+        return sb.toString();
+    }
+
+    /**
+     * 把秒数写成"几天几小时几分"。
+     *
+     * @param seconds 秒
+     * @return 可读文本
+     */
+    private static String formatUptime(long seconds) {
+        long days = seconds / 86400;
+        long hours = (seconds % 86400) / 3600;
+        long minutes = (seconds % 3600) / 60;
+
+        StringBuilder text = new StringBuilder();
+        if (days > 0) {
+            text.append(days).append(" 天 ");
+        }
+        if (days > 0 || hours > 0) {
+            text.append(hours).append(" 小时 ");
+        }
+        text.append(minutes).append(" 分");
+        return text.toString();
     }
 
     /**
@@ -156,8 +213,6 @@ public class StatusCommand implements CommandHandler {
      * 那样回答的是"这个客户端配置对不对"，而不是"这次聊天能不能成"。
      * 比如本地节点在线、策略是 LOCAL_FIRST，那这次走本地——
      * 结果报的是云端的可用性，就答非所问了。
-     *
-     * <p>所以这里按 {@code activeProviderName()} 的结果去查对应的那个客户端。
      *
      * @return 可用返回 {@code true}
      */
@@ -191,28 +246,14 @@ public class StatusCommand implements CommandHandler {
             String nodeId = (localNodeManager instanceof InMemoryLocalNodeManager mem)
                     ? mem.getLastNodeId() : null;
             return "在线 ✅" + (nodeId == null ? "" : "（" + nodeId + "）")
-                    + "，最后心跳 " + (since / 1000) + " 秒前";
+                    + "，心跳 " + (since / 1000) + " 秒前";
         }
 
         if (localNodeManager instanceof InMemoryLocalNodeManager mem && mem.hasEverConnected()) {
-            long last = localNodeManager.lastHeartbeatAt();
             long since = localNodeManager.millisSinceLastHeartbeat();
-            return "离线 ❌（曾经连上过，最后心跳 " + (last > 0 ? (since / 1000) + " 秒前" : "未知") + "）";
+            return "离线 ❌（曾经连上过，最后心跳 " + (since / 1000) + " 秒前）";
         }
 
-        return "离线 ❌（从未上报过心跳 —— 本地节点程序还没启动或尚未接入）";
-    }
-
-    /**
-     * 把配置里的角色值翻译成人能看懂的一句话。
-     *
-     * @param role 配置值 {@code local} 或 {@code cloud}
-     * @return 中文说明
-     */
-    private String describeRole(String role) {
-        if ("cloud".equalsIgnoreCase(role)) {
-            return "云端（cloud）— 唯一入口，负责接收全部 QQ 消息";
-        }
-        return "本地（local）— 本机直连腾讯，本地模型负责闲聊";
+        return "离线 ❌（从未上报心跳）";
     }
 }

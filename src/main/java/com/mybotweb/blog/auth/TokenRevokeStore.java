@@ -53,7 +53,16 @@ public class TokenRevokeStore {
      * <p>用冒号分层是 Redis 的惯例，好处是在 {@code redis-cli} 里
      * 敲 {@code keys admin:token:*} 就能看到所有登录中的会话。
      */
-    private static final String KEY_PREFIX = "admin:token:";
+    private static final String ADMIN_KEY_PREFIX = "admin:token:";
+
+    /**
+     * 普通用户会话的 key 前缀。完整形式：{@code user:token:{jti}}
+     *
+     * <p>和管理员分开前缀，好处是在 {@code redis-cli} 里能分别统计
+     * "后台几个会话"和"前台几个用户在线"，也方便排查时一眼看出
+     * 某个令牌属于哪一套身份。
+     */
+    private static final String USER_KEY_PREFIX = "user:token:";
 
     private final StringRedisTemplate redisTemplate;
 
@@ -75,7 +84,7 @@ public class TokenRevokeStore {
         // 过期时间和令牌本身的有效期一致：令牌到期后这条记录自动消失，
         // 不用写清理任务，也不会在 Redis 里留垃圾
         redisTemplate.opsForValue().set(
-                KEY_PREFIX + tokenId,
+                ADMIN_KEY_PREFIX + tokenId,
                 username,
                 Duration.ofSeconds(currentExpireSeconds()));
         log.debug("登记登录会话：{}", username);
@@ -96,7 +105,7 @@ public class TokenRevokeStore {
             // 关掉吊销功能时一律放行，只靠签名和有效期保护
             return true;
         }
-        return Boolean.TRUE.equals(redisTemplate.hasKey(KEY_PREFIX + tokenId));
+        return Boolean.TRUE.equals(redisTemplate.hasKey(ADMIN_KEY_PREFIX + tokenId));
     }
 
     /**
@@ -108,7 +117,7 @@ public class TokenRevokeStore {
         if (!isEnabled() || tokenId == null) {
             return;
         }
-        redisTemplate.delete(KEY_PREFIX + tokenId);
+        redisTemplate.delete(ADMIN_KEY_PREFIX + tokenId);
         log.info("已注销登录会话：{}", tokenId);
     }
 
@@ -126,11 +135,106 @@ public class TokenRevokeStore {
             return 0;
         }
         try {
-            var keys = redisTemplate.keys(KEY_PREFIX + "*");
+            var keys = redisTemplate.keys(ADMIN_KEY_PREFIX + "*");
             return keys == null ? 0 : keys.size();
         } catch (Exception e) {
             // 统计失败不该让整个后台首页打不开，所以这里吞掉异常只记日志
             log.warn("统计有效会话数失败：{}", e.getMessage());
+            return 0;
+        }
+    }
+
+    // ========================================================
+    // 普通用户会话
+    //
+    // 和上面三个方法一一对应，只是换了前缀。
+    //
+    // 【为什么不合并成 register(kind, ...) 这种带类型参数的形式】
+    // 合并能少写几十行，但代价是把"这次操作的是哪一种身份"变成了
+    // 一个必须由调用方传对的参数 —— 传错就是把管理员踢下线，
+    // 或者用户登出后会话还在。分成两组方法之后，调用点写的是
+    // registerUser，读代码的人一眼就知道操作的是哪一边。
+    // ========================================================
+
+    /**
+     * 登记一个刚签发的普通用户令牌。
+     *
+     * @param tokenId  令牌里的 jti
+     * @param username 登录名
+     */
+    public void registerUser(String tokenId, String username) {
+        if (!isEnabled()) {
+            return;
+        }
+        redisTemplate.opsForValue().set(
+                USER_KEY_PREFIX + tokenId,
+                username,
+                Duration.ofSeconds(currentExpireSeconds()));
+        log.debug("登记用户会话：{}", username);
+    }
+
+    /**
+     * 这个用户令牌是否还在有效名单里。
+     *
+     * @param tokenId 令牌里的 jti
+     * @return 还在名单里返回 {@code true}
+     */
+    public boolean isActiveUser(String tokenId) {
+        if (!isEnabled() || tokenId == null) {
+            return true;
+        }
+        return Boolean.TRUE.equals(redisTemplate.hasKey(USER_KEY_PREFIX + tokenId));
+    }
+
+    /**
+     * 注销一个用户令牌（用户点"退出登录"时调用）。
+     *
+     * @param tokenId 令牌里的 jti
+     */
+    public void revokeUser(String tokenId) {
+        if (!isEnabled() || tokenId == null) {
+            return;
+        }
+        redisTemplate.delete(USER_KEY_PREFIX + tokenId);
+        log.info("已注销用户会话：{}", tokenId);
+    }
+
+    /**
+     * 把某个用户的<b>所有</b>会话都注销掉。
+     *
+     * <p>用在两个地方：管理员封禁用户、用户改密码。
+     * 这两种情况下"只踢掉当前这一个令牌"是不够的 ——
+     * 用户可能同时在手机和电脑上登录着。
+     *
+     * <p>实现上只能扫 {@code user:token:*} 再逐个比对 value（value 存的是用户名）。
+     * 会话数很少所以可以接受；真到成千上万时要换 {@code SCAN}。
+     *
+     * @param username 登录名
+     * @return 实际注销的会话数
+     */
+    public int revokeAllOfUser(String username) {
+        if (!isEnabled() || username == null || username.isBlank()) {
+            return 0;
+        }
+        try {
+            var keys = redisTemplate.keys(USER_KEY_PREFIX + "*");
+            if (keys == null || keys.isEmpty()) {
+                return 0;
+            }
+            int removed = 0;
+            for (String key : keys) {
+                // value 存的是登录名，拿来判断这条会话是不是这个人的
+                if (username.equals(redisTemplate.opsForValue().get(key))) {
+                    redisTemplate.delete(key);
+                    removed++;
+                }
+            }
+            if (removed > 0) {
+                log.info("已注销 {} 的全部用户会话，共 {} 个", username, removed);
+            }
+            return removed;
+        } catch (Exception e) {
+            log.warn("注销用户全部会话失败：{}", e.getMessage());
             return 0;
         }
     }

@@ -96,4 +96,17 @@ public class Article {
      * <p>草稿状态下这个字段是 {@code null}，发布时才赋值。
      */
     private LocalDateTime publishedAt;
+
+    /**
+     * 作者（普通用户 id）。
+     *
+     * <p>{@code null} 表示<b>管理员发的</b>或者改动前就存在的历史文章 ——
+     * 那时候还没有"作者"这个概念。
+     *
+     * <p>用可空列而不是"补一个系统用户"：补假数据会让"按作者筛选"
+     * 多出一堆没意义的记录。NULL 自带"这不属于任何普通用户"的语义，
+     * 查询时 {@code author_user_id = ?} 自然就把它们排除了，
+     * 不用再额外记得加一个 type 条件。
+     */
+    private Long authorUserId;
 }

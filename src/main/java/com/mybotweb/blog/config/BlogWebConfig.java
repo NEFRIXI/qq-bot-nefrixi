@@ -2,6 +2,7 @@ package com.mybotweb.blog.config;
 
 import com.mybotweb.blog.auth.AdminAuthInterceptor;
 import com.mybotweb.blog.auth.BlogEnabledInterceptor;
+import com.mybotweb.blog.auth.UserAuthInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
@@ -22,6 +23,8 @@ public class BlogWebConfig implements WebMvcConfigurer {
     private final BlogEnabledInterceptor blogEnabledInterceptor;
 
     private final AdminAuthInterceptor adminAuthInterceptor;
+
+    private final UserAuthInterceptor userAuthInterceptor;
 
     /**
      * 拦截器的注册顺序很重要，这里体现为 {@code order}。
@@ -69,5 +72,18 @@ public class BlogWebConfig implements WebMvcConfigurer {
                 .addPathPatterns("/admin/api/**")
                 .excludePathPatterns("/admin/api/login")
                 .order(1);
+
+        // ---- 第三道：普通用户身份 ----
+        //
+        // 拦的是 /client/api/**，但它和上面两道不一样：
+        // 它<b>不要求所有路径都登录</b>。看文章是公开的，评论和发帖才需要。
+        // "哪些路径要登录"判断在 UserAuthInterceptor.requiresLogin() 里，
+        // 集中在一处，改的时候不会漏。
+        //
+        // 它排在博客总开关之后：博客关着的时候，用户接口一律 503，
+        // 不该先冒出一个"请先登录"。
+        registry.addInterceptor(userAuthInterceptor)
+                .addPathPatterns("/client/api/**")
+                .order(2);
     }
 }
