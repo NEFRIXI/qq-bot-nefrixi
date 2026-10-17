@@ -18,6 +18,10 @@ import org.springframework.stereotype.Service;
 import javax.sql.DataSource;
 import java.io.File;
 import java.lang.management.ManagementFactory;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -154,16 +158,85 @@ public class SystemStatusService {
         }
 
         long total = sunOsBean.getTotalMemorySize();
-        long free = sunOsBean.getFreeMemorySize();
+
+        // 刻意不用 sunOsBean.getFreeMemorySize() —— 它在 Linux 上返回的是
+        // /proc/meminfo 的 MemFree，会把占用率算虚高。原因见 readAvailableMemory()
+        long available = readAvailableMemory(sunOsBean);
 
         vo.setSystemTotalMemoryMb(total / BYTES_PER_MB);
-        vo.setSystemFreeMemoryMb(free / BYTES_PER_MB);
-        vo.setSystemUsedMemoryMb((total - free) / BYTES_PER_MB);
-        vo.setSystemMemoryUsagePercent(percent(total - free, total));
+        vo.setSystemFreeMemoryMb(available / BYTES_PER_MB);
+        vo.setSystemUsedMemoryMb((total - available) / BYTES_PER_MB);
+        vo.setSystemMemoryUsagePercent(percent(total - available, total));
 
         // getCpuLoad() 返回 0.0~1.0，取不到时返回 -1.0（不是 0）
         double cpuLoad = sunOsBean.getCpuLoad();
         vo.setCpuLoadPercent(cpuLoad < 0 ? -1 : Math.round(cpuLoad * 10000.0) / 100.0);
+    }
+
+    /**
+     * 取"当前真正还能用得上的物理内存"，单位字节。
+     *
+     * <p><b>为什么不直接用 {@code OperatingSystemMXBean.getFreeMemorySize()}</b>
+     *
+     * <p>它在 Linux 上映射到 {@code /proc/meminfo} 的 {@code MemFree} 那一列。
+     * 那一列的意思是"没被任何东西碰过的内存"，<b>不包含 buff/cache</b>。
+     * 而 Linux 的默认行为是：空闲内存全拿去缓存磁盘文件，任何进程一申请内存，
+     * 内核立刻把这些缓存页丢掉还回去 —— 所以 {@code MemFree} 常年很小。
+     *
+     * <p>拿"总 - MemFree"算占用率会严重虚高。实测一台 3.7G 的机器：
+     *
+     * <pre>
+     *   MemTotal       3723 MB
+     *   MemFree         176 MB   ← 被当成"剩余"，其实只是没被碰过的部分
+     *   buff/cache     2219 MB   ← 被算成了"已用"，其实随时可回收
+     *   MemAvailable   2130 MB   ← 真正的可用量
+     *
+     *   (3723-176)/3723  = 95.4%   页面显示的值，虚高
+     *   (3723-2130)/3723 = 42.8%   真实情况
+     * </pre>
+     *
+     * <p>内核自己判断内存压力用的是 {@code MemAvailable}（3.14 起提供），
+     * 它等于 {@code MemFree} 加上"可以立刻回收的那部分缓存"。所以优先取它。
+     *
+     * <p>非 Linux 系统（Windows/macOS）上 {@code getFreeMemorySize()} 拿到的
+     * 本来就是可用物理内存（Windows 上对应 {@code GlobalMemoryStatusEx} 的
+     * {@code ullAvailPhys}），没有这个问题，直接用它。
+     *
+     * @param sunOsBean 已确认可用的 MXBean，作为非 Linux 的退路
+     * @return 可用内存字节数；拿不到时退回 MXBean 的值
+     */
+    private long readAvailableMemory(com.sun.management.OperatingSystemMXBean sunOsBean) {
+        Path meminfo = Paths.get("/proc/meminfo");
+        if (Files.isReadable(meminfo)) {
+            try {
+                for (String line : Files.readAllLines(meminfo, StandardCharsets.UTF_8)) {
+                    if (line.startsWith("MemAvailable:")) {
+                        return parseMeminfoKb(line) * 1024L;
+                    }
+                }
+                // 3.14 之前的内核没有这一项，退回 MXBean
+                log.debug("/proc/meminfo 里没有 MemAvailable（内核太老？），退回 MXBean");
+            } catch (Exception e) {
+                // 这个类的规矩是"探测失败也不抛异常"，见类注释
+                log.debug("读 /proc/meminfo 失败，退回 MXBean：{}", e.getMessage());
+            }
+        }
+
+        return sunOsBean.getFreeMemorySize();
+    }
+
+    /**
+     * 从一行 {@code /proc/meminfo} 里取出数值部分。
+     *
+     * <p>格式固定是 {@code "MemAvailable:   2130448 kB"}：键名带冒号、
+     * 若干空格、数值、单位。按空白切开后第 1 段就是这个数（单位 kB）。
+     *
+     * @param line 一行内容
+     * @return kB 数
+     */
+    private static long parseMeminfoKb(String line) {
+        String[] parts = line.trim().split("\\s+");
+        return Long.parseLong(parts[1]);
     }
 
     /**

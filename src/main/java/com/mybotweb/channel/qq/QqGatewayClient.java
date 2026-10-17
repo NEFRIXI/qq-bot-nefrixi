@@ -361,12 +361,19 @@ public class QqGatewayClient {
                 .build();
 
         // buildAsync 返回 CompletableFuture，join 等它连上。
-        // 连不上会抛 CompletionException，由上面的重试循环接住
-        WebSocket ws = httpClient.newWebSocketBuilder()
+        // 连不上会抛 CompletionException，由上面的重试循环接住。
+        //
+        // 连接对象不在这里接：GatewayListener.onOpen 已经把它存进字段了，
+        // 而且必须由它来存（原因见 onOpen 里的注释 —— join() 返回时
+        // 服务端的 Hello 可能已经在处理了）。
+        httpClient.newWebSocketBuilder()
                 .buildAsync(URI.create(gatewayUrl), new GatewayListener())
                 .join();
 
-        this.webSocket = ws;
+        // 这里不能再写一次 this.webSocket = ws：万一连接刚建好就被服务端
+        // 关掉，scheduleReconnect() 已经把字段置成 null，而本方法紧接着
+        // 返回、又把那个已失效的连接赋回去 —— 之后 sendText 就会拿着一个
+        // 关掉的连接去发消息，报出一堆看不懂的错。
         this.retryCount.set(0);
         log.info("WebSocket 连接已建立：{}", gatewayUrl);
     }
@@ -451,6 +458,21 @@ public class QqGatewayClient {
 
         @Override
         public void onOpen(WebSocket ws) {
+            // ★ 连接必须在这里就存下来，不能只靠 doConnect() 里那行赋值。
+            //
+            // 【不这么做会怎样】buildAsync().join() 要等本方法跑完才返回，
+            // 所以 doConnect() 里的 this.webSocket = ws 一定发生在本方法之后。
+            // 而 join() 一返回，同一个 IO 线程马上就会送达服务端的 Hello
+            // （op=10），并在线程池里回调：
+            //     onText → handlePayload → handleHello → sendIdentify → sendText
+            // 这一串全在 IO 线程上同步跑完，主线程此时还没走出 join()，
+            // 于是 sendText 读到的 webSocket 仍是 null，抛
+            // "WebSocket 还没连接，无法发送"。
+            //
+            // 外在表现：首次连接必定失败一次，要等 5 秒后重连才连得上。
+            // 因为是纯时序，偶尔看着又是好的 —— 这种 bug 最难查。
+            // 放在这里赋值就没有窗口期了：协议保证 onOpen 一定早于 onText。
+            QqGatewayClient.this.webSocket = ws;
             log.info("WebSocket 已连接，等待 Hello（op=10）");
             // 告诉底层"我准备好收一条消息了"。这个 request 机制是必须的，
             // 忘了它就会只收到第一条然后永远安静

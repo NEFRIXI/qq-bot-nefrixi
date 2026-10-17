@@ -106,13 +106,29 @@ public class SystemStatusVo {
     /** 机器总内存（MB） */
     private long systemTotalMemoryMb;
 
-    /** 机器已用内存（MB） */
+    /**
+     * 机器已用内存（MB）。
+     *
+     * <p>算的是"总量 - <b>可用量</b>"，不是"总量 - 空闲量"。这两个差值能差出一倍以上，
+     * 原因见 {@link #systemFreeMemoryMb}。
+     */
     private long systemUsedMemoryMb;
 
-    /** 机器空闲内存（MB） */
+    /**
+     * 机器可用内存（MB）。
+     *
+     * <p>注意这里是 <b>available</b>，不是 free。Linux 上取的是
+     * {@code /proc/meminfo} 的 {@code MemAvailable}，也就是"空闲 + 可以立刻回收的缓存"。
+     *
+     * <p>用纯 free（{@code MemFree}）会把占用率算得虚高：一台 3.7G 的机器上，
+     * 真实的 43% 会显示成 95%，因为 buff/cache 那 2.2G 被当成了"已用"，
+     * 而它其实随时可以被回收。详见 {@code SystemStatusService.readAvailableMemory()}。
+     *
+     * <p>字段名保留 {@code Free} 是为了不破坏已经发出去的 JSON 契约。
+     */
     private long systemFreeMemoryMb;
 
-    /** 机器内存使用率（%） */
+    /** 机器内存使用率（%），按"已用 / 总量"算，其中"已用" = 总量 - 可用量 */
     private double systemMemoryUsagePercent;
 
     // ========================================================
