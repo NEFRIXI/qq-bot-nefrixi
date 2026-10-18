@@ -1,6 +1,6 @@
 # mybotweb
 
-QQ 机器人（对接腾讯 QQ 开放平台）+ 博客网站，跑在同一个 Spring Boot 进程里。
+QQ 机器人（对接腾讯 QQ 开放平台）+ 一个有用户体系的博客网站，跑在同一个 Spring Boot 进程里。
 
 > **四份文档的分工**
 >
@@ -11,7 +11,7 @@ QQ 机器人（对接腾讯 QQ 开放平台）+ 博客网站，跑在同一个 S
 > | [`项目数据流详解.md`](项目数据流详解.md) | 一条消息 / 一个请求从进门到出口经过哪几站 |
 > | [`开发进度.md`](开发进度.md) | 当前状态快照、踩过的坑、当初为什么这么定 |
 
-**当前状态：QQ 机器人全链路已跑通，博客后端和前端已完成，已部署到云服务器。**
+**当前状态：QQ 机器人全链路已跑通；博客含用户注册登录、评论、发帖、后台用户管理；已部署到云服务器。**
 
 ---
 
@@ -24,11 +24,18 @@ QQ 机器人（对接腾讯 QQ 开放平台）+ 博客网站，跑在同一个 S
 | 算力路由（本地 / 云端自动选 + 降级告知） | ✅ 已实现 |
 | 本地模型自动拉起（`LocalModelSupervisor`） | ✅ 已实现 |
 | 热聊模式（机器人主动搭话） | ✅ 已实现，⬜ 默认关闭，发 `/c_hot on` 开启 |
-| **博客前台**（欢迎页 / 文章列表 / 详情 / 点赞 / 浏览量） | ✅ 已完成 |
-| **博客后台**（登录 / 文章 CRUD / 访问统计 / 服务器状态） | ✅ 已完成 |
-| **数据库**（MySQL + Flyway 建表、Redis 计数） | ✅ 已完成 |
+| `/status` 查看系统状态（含内存/运行时长） | ✅ 已精简并加了资源占用 |
+| **博客前台**（欢迎页 / 列表 / 详情 / 点赞 / 浏览量） | ✅ 已完成 |
+| **普通用户注册 / 登录 / 登出** | ✅ 已完成 |
+| **评论（两层楼中楼）** | ✅ 已完成 |
+| **用户发帖（只能删自己的）** | ✅ 已完成 |
+| **接口限流（注册/登录/评论/发帖）** | ✅ 已完成 |
+| **博客后台**（登录 / 文章 CRUD / 统计 / 服务器状态 / **用户管理**） | ✅ 已完成 |
+| **数据库**（MySQL + Flyway 三个脚本、Redis 计数与会话） | ✅ 已完成 |
+| 日志按天分目录 | ✅ 已完成（`logs/2026-10-17/`） |
 | 本地节点接入端点 | ⬜ 未实现（全项目唯一的空壳） |
 | 图片上传（OSS） | ⬜ 未做，正文现在只能用外链图片 |
+| 改密码 / 找回密码 | ⬜ 未做，只能改数据库 |
 
 详细的能力清单和设计理由见 `项目说明.md` §一 和 §五。
 
@@ -43,7 +50,7 @@ chcp 65001                 # 不切的话中文日志是乱码
 mvn -o spring-boot:run
 ```
 
-**博客功能默认是关的**（`application-local.yml:55` 里 `app.blog.enabled: false`），
+**博客功能默认是关的**（`application-local.yml` 里 `app.blog.enabled: false`），
 所以这样启动**不会连数据库**，MySQL 没开也能起。
 
 ### 2.2 本地：带博客一起跑
@@ -52,29 +59,43 @@ mvn -o spring-boot:run
 mvn -o spring-boot:run "-Dspring-boot.run.arguments=--app.blog.enabled=true"
 ```
 
+**首次启动**会自动建表（Flyway 跑 V1/V2/V3）并建出第一个管理员。
 然后打开浏览器：
 
-| 地址 | 是什么 |
-|---|---|
-| `http://127.0.0.1:8080/client` | 欢迎页（右上角有"登录"入口） |
-| `http://127.0.0.1:8080/client/main` | 文章列表 |
-| `http://127.0.0.1:8080/admin/login` | 后台登录 |
+| 地址 | 是什么 | 要登录吗 |
+|---|---|---|
+| `http://127.0.0.1:8080/client` | 欢迎页（带实时状态 + 右上角登录入口） | 否 |
+| `http://127.0.0.1:8080/client/main` | 文章列表 | 否 |
+| `http://127.0.0.1:8080/client/main/{slug}` | 文章详情（**带评论区**） | 看评论不用，发评论要 |
+| `http://127.0.0.1:8080/client/auth` | **普通用户登录 / 注册** | 否 |
+| `http://127.0.0.1:8080/client/post` | **写文章（普通用户）** | **要** |
+| `http://127.0.0.1:8080/admin/login` | **管理员**登录 | 否 |
+| `http://127.0.0.1:8080/admin` | 后台概览 | 要（管理员） |
+| `http://127.0.0.1:8080/admin/work/articles` | 文章管理 | 要（管理员） |
+| `http://127.0.0.1:8080/admin/work/users` | **用户管理（封禁/解封）** | 要（管理员） |
+| `http://127.0.0.1:8080/admin/work/stats` | 访问统计 | 要（管理员） |
+| `http://127.0.0.1:8080/admin/work/system` | 服务器状态 | 要（管理员） |
 
-**管理员账号密码在 `application-local.yml` 的 `app.blog.admin` 里。**
+> ⚠️ **两套身份、两个登录入口，别混**：
+>
+> - `/admin/login` 登的是**管理员**（能删文章、看服务器状态、封用户）
+> - `/client/auth` 登的是**普通用户**（能发帖、评论）
+> - 两套令牌用的是同一个密钥，但载荷里的 `type` 不同，互相不认
+> - 浏览器里也是两个 localStorage key：`mybotweb_admin_token` / `mybotweb_user_token`，
+>   所以**同一个浏览器可以同时登录两边**
 
-> **首次启动**时，如果 `admin_user` 表是空的，会用这组账号密码建出第一个管理员
-> （密码 BCrypt 哈希后存库，库里没有明文）。表里已经有记录就不再动 ——
-> **所以改了配置里的密码不会影响已经建好的账号。**
+**管理员账号密码在 `application-local.yml` 的 `app.blog.admin`。**
+普通用户自己注册就能用。
 
 ### 2.3 服务器上跑
 
 服务器上已经有 systemd 服务在管。改完 jar 之后：
 
 ```bash
-# 在服务器上
 sudo systemctl restart mybotweb
 sudo systemctl status mybotweb
 tail -f /home/nefrix-r/botweb/run.log
+ls logs/                         # 会看到 2026-10-16/ 2026-10-17/ 这样的日期目录
 ```
 
 **启动参数里的 profile 顺序不能反**（写在 `ExecStart` 里）：
@@ -107,17 +128,15 @@ Spring Boot 同时激活多个 profile 是**后者覆盖前者**。jar 里带着
 
 > 这个文件已被 `.gitignore` 忽略，不会提交到 git。
 >
-> **`application.yml`（会提交的那份）里现在是模板**：`api-key: ${LLM_API_KEY:}`、
-> `app-secret: ${QQ_APP_SECRET:}` 这种写法，真值只在 local / prod 两份里。
-> 这个坑之前踩过 —— 详见 `项目说明.md` §七 最后一段。
+> **`application.yml`（会提交的那份）里现在是模板**：`api-key: ${LLM_API_KEY:}` 这种写法，
+> 真值只在 local / prod 两份里。
 
 ### 第 2 件：在 WSL 里启动 Ollama
 
 > ✅ **把 Ollama 跑起来，聊天就会走本地** —— 这才是"本地优先"的本意。
 >
-> 不启动也行：那时会自动降级到云端 DeepSeek（**回复末尾会明说**，免得你以为在花
-> 免费的本机算力却在付 API 的钱），同时程序会**自动尝试拉起**它
-> （`LocalModelSupervisor`，带 60 秒冷却）。
+> 不启动也行：那时会自动降级到云端 DeepSeek（**回复末尾会明说**），
+> 同时程序会**自动尝试拉起**它（`LocalModelSupervisor`，带 60 秒冷却）。
 
 Windows 上的程序要通过 `localhost:11434` 访问 WSL 里的 Ollama。Ollama 默认只绑
 `127.0.0.1`，跨出 WSL 边界就访问不到，所以必须显式指定绑定地址。
@@ -154,8 +173,7 @@ ollama list
 | 速度 | 慢，吃显存（约 5-6GB） | 快，省显存（约 3GB） |
 | 适合 | 问答、需要一点推理 | 纯闲聊、机器同时在跑别的程序 |
 
-**建议先用 7B 跑顺**，等确实觉得慢再拉小的对比。用 `/model` 切着聊两句 ——
-这正是把它做成命令而不是配置项的意义。
+**建议先用 7B 跑顺**，等确实觉得慢再拉小的对比。
 
 ### 第 3 件：把机器人加成好友（沙箱）
 
@@ -202,14 +220,16 @@ Tomcat started on port 8080 (http)
 **逐行看这一眼**：
 
 - 「命令路由初始化完成」后面如果是 `共注册 0 个命令` → `command/impl/` 下的类漏了 `@Component`
-- 「算力路由器已就绪」那行的**「本地节点：离线」不能当结论** —— 真正的判据还包括"本机模型服务能不能连上"。要知道这次走谁，看聊天时日志里的 `路由决定：…` 才准
+- 「算力路由器已就绪」那行的**「本地节点：离线」不能当结论** —— 要知道这次走谁，
+  看聊天时日志里的 `路由决定：…` 才准
 - 「鉴权成功，机器人在线」才说明 QQ 通道通了
 
 **开了博客的话还会看到**：
 
 ```
-Flyway：Migrating schema `mybotweb` to version "1 - create article"
-Flyway：Successfully applied 2 migrations
+Flyway：Migrating schema `mybotweb` to version "3 - create app user and comment"
+Flyway：Successfully applied 3 migrations
+管理员账号已存在，跳过初始化：admin
 ```
 
 **没开博客**（本机默认）会看到：
@@ -269,14 +289,17 @@ pwsh -File data-test/e2e-test.ps1
 | 状态统计 | MySQL/Redis 连通性、JVM 内存、磁盘、排行榜 |
 | 登出 | 登出后旧令牌立刻失效（401） |
 
-> 管理员密码是脚本**从 yaml 里现场读**的，不写在脚本里 —— 那份文件要进仓库，
-> 写进去等于提交密码。
+> ⚠️ **这个脚本还没覆盖用户体系**（注册/登录/评论/发帖/封禁）。
+> 那套代码是后加的，测试没跟着更新 —— 手工验一遍，或者按同样的风格补上。
 
 **启动测试实例的完整命令**：
 
 ```powershell
 mvn -o spring-boot:run "-Dspring-boot.run.arguments=--server.port=8082 --app.channel.type=mock --app.blog.enabled=true"
 ```
+
+> 管理员密码是脚本**从 yaml 里现场读**的，不写在脚本里 —— 那份文件要进仓库，
+> 写进去等于提交密码。
 
 ### 5.3 前端逻辑测试（59 + 29 项）
 
@@ -294,13 +317,41 @@ node data-test/rail-test.mjs
 | `frontend-test.mjs` | `escapeHtml` 转义、时间解析（Safari 兼容）、401 处理、POST 的 charset | 59 |
 | `rail-test.mjs` | 音乐时间轴：卡片数、`--step` 位移、点击播放、播完不循环、双卡片高亮同步 | 29 |
 
-**为什么值得单独测**：这些函数在浏览器里出错的表现是**"页面白着"或"点了没反应"**，
-从现象上根本看不出是哪一步断的。
+> ⚠️ `user.js` 里的逻辑**没有对应的测试脚本**。
 
-> **外观本身验不了** —— 沙箱里起不来 Chrome（多进程 + 命名管道的 IPC 被拦）。
-> 滚动、放大、淡出、扫光这些必须人眼过一遍。
+### 5.4 手工验证用户体系（现在只能这样）
 
-### 5.4 接上 QQ 之后
+```powershell
+# 1) 注册（成功直接返回令牌）
+$reg = curl.exe -s -X POST http://localhost:8082/client/api/user/register `
+  -H "Content-Type: application/json;charset=UTF-8" `
+  --data-binary '{"username":"alice","password":"Passw0rd!","nickname":"Alice"}'
+$reg
+
+# 2) 拿令牌发评论（把 <令牌> 换成上一步的 token）
+curl.exe -s -X POST http://localhost:8082/client/api/comments `
+  -H "Content-Type: application/json;charset=UTF-8" `
+  -H "Authorization: Bearer <令牌>" `
+  --data-binary '{"articleId":1,"content":"第一条评论"}'
+
+# 3) 不带令牌发评论 → 应该 401
+curl.exe -s -X POST http://localhost:8082/client/api/comments `
+  -H "Content-Type: application/json" `
+  --data-binary '{"articleId":1,"content":"匿名试试"}'
+
+# 4) 看评论列表（公开，不需要令牌）
+curl.exe -s "http://localhost:8082/client/api/comments?articleId=1"
+```
+
+**要验的关键几条**：
+
+- 不带令牌 POST 评论 → `code: 401`
+- 用**后台管理员令牌**调用户接口 → 也是 401（`type` 不是 `USER`）
+- 拿 A 的令牌删 B 的帖子 → `code: 403`（"只能删除自己发的帖子"）
+- 管理员封禁某人后，那人手上的旧令牌立刻失效
+- 一分钟内连续发 21 条评论 → 第 21 条被 429
+
+### 5.5 接上 QQ 之后
 
 直接在 QQ 里给机器人发消息：
 
@@ -349,32 +400,15 @@ private boolean isLocalAvailable() {
 | `cloud/LocalNodeEndpoint.java` | `/ws/local-agent` 端点 | ⬜ **唯一的空壳** |
 
 > 本地和云端两个客户端**同时装配**，由 `ModelRouterImpl` 在运行期选。
-> 早期是靠 `@ConditionalOnProperty(app.role)` 二选一的，那个方式已取消 ——
-> `app.role` 现在只用来标注"这台机器是什么角色"。
 
 ### 自动拉起：`LocalModelSupervisor`
 
-本地不可用时，`isLocalAvailable()` 会顺手调一次 `ensureStarted()`：
-
-```
-wsl -d Ubuntu-20.04 -- bash -lc "export OLLAMA_HOST=0.0.0.0:11434; pkill -f 'ollama serve'; ..."
-```
-
-**异步**：发起就返回，当前这条消息照常走云端兜底，拉起来后**下一次**请求走本地。
+本地不可用时，`isLocalAvailable()` 会顺手调一次 `ensureStarted()`，**异步**执行。
+发起就返回，当前这条消息照常走云端兜底，拉起来后**下一次**请求走本地。
 
 **六道前置检查**，所以不会变成"每条消息起一个进程"：
-
 `auto-start` 开关 → `manage-enabled` 开关 → **只在 Windows 生效** → 本地已可用就直接返回
 → 冷却时间（默认 60 秒）→ "启动中"互斥标记
-
-### 唯一还没做的
-
-`cloud/LocalNodeEndpoint.java` 仍是占位类（构造器直接抛异常），而且 pom 里**还没有**
-`spring-boot-starter-websocket`。它负责"让远端本地节点连进来上报心跳"，单机用不到。
-
-> **两个容易混的点**：
-> ① `/setlocal` 是**手动、同步**的（拉起并回执），`LocalModelSupervisor` 是**自动、异步**的。
-> ② "服务活着"（本机探测）和"节点在线"（心跳）是两个不同来源，但都算"本地可用"。
 
 ---
 
@@ -415,26 +449,26 @@ src/main/java/com/mybotweb/
 │       ├── OllamaModelSelector
 │       └── LocalModelSupervisor    ★本地不可用时异步拉起
 ├── route/                        ★算力路由
-│   ├── ModelRouter / ModelRouterImpl
-│   └── RouteStrategy
-├── cloud/                        云端与本地节点
-│   ├── CloudChatModelClient        ✅
-│   ├── LocalNodeManager            ✅ 接口
-│   ├── InMemoryLocalNodeManager    ✅ 实现
-│   └── LocalNodeEndpoint           ⬜ 唯一的空壳
+├── cloud/                        云端与本地节点（LocalNodeEndpoint 是空壳）
 ├── agent/                        人设、记忆、热聊
-├── security/                     QQ 侧的权限
+├── security/                     QQ 侧的权限 + 博客侧的基础设施
+│   ├── UserContext / AdminWhitelist / AdminClaimService / RateLimiter
+│   ├── ClientIpResolver            ⭐从请求里取真实 IP
+│   └── RedisRateLimiter            ⭐博客侧限流（滑动窗口 + Lua）
 ├── controller/                   机器人侧的 REST（DebugQqController）
-├── client/ClientPageController   /client、/client/main 页面路由
+├── client/                       页面路由
+│   ├── ClientPageController       /client、/client/main、/client/auth、/client/post
+│   └── ClientStatusController     ⭐/client/api/status（首页轻量状态）
 │
 ├── ══════ 博客网站这半边 ══════
-└── blog/                         ★★博客全部代码（36 个类）
-    ├── config/                   BlogProperties / BlogWebConfig(拦截器注册) / MybatisPlusConfig
-    ├── auth/                     JWT / 拦截器 / ThreadLocal / 首次建号
+└── blog/                         ★★博客全部代码
+    ├── config/                   BlogProperties / BlogWebConfig(三道拦截器) / MybatisPlusConfig
+    ├── auth/                     JWT / 拦截器 / 两个 ThreadLocal / 两套认证服务
     ├── entity/ mapper/ dto/ vo/
     ├── markdown/MarkdownRenderer
-    ├── service/                  ArticleService / ArticleCounterService / SystemStatusService
-    └── web/                      5 个 Controller
+    ├── service/                  Article / ArticleCounter / SystemStatus /
+    │                             ⭐UserPost / ⭐Comment / ⭐AdminUserManage
+    └── web/                      9 个 Controller
 ```
 
 **资源目录**：
@@ -444,12 +478,13 @@ src/main/resources/
 ├── application.yml                模板（会提交）
 ├── application-local.yml          本机真值（gitignore）
 ├── application-prod.yml           云端真值（gitignore）
-├── db/migration/                  Flyway：V1 建 article、V2 建 admin_user
+├── logback-spring.xml             ⭐日志按天分目录
+├── db/migration/                  Flyway：V1 建 article、V2 建 admin_user、V3 建 app_user+comment
 ├── static/
-│   ├── client/                    欢迎页 + 文章列表 + 详情
-│   ├── admin/                     后台 6 个页面
-│   ├── css/                       common.css（变量/按钮/容器）+ main.css + admin.css
-│   ├── js/                        common.js（api/escapeHtml/toast）+ main.js + admin.js
+│   ├── client/                    欢迎页 / 列表 / 详情 / auth / post
+│   ├── admin/                     登录 / 首页 / 文章 / 编辑 / 统计 / 系统 / users
+│   ├── css/                       common.css + main.css + admin.css
+│   ├── js/                        common.js + main.js + admin.js + user.js
 │   └── music/                     音乐文件
 └── SysPrompt/                     人设层 + 场合规则层
 ```
@@ -460,9 +495,10 @@ src/main/resources/
 3. 重启
 
 **加新博客接口**：
-1. 在 `blog/web/` 新建 Controller，路径前缀决定要不要登录（见 `blog/config/BlogWebConfig`）
-2. 业务逻辑放 `blog/service/`
-3. 返回结构放 `blog/vo/`
+1. 在 `blog/web/` 新建 Controller
+2. **先想清楚要不要登录** —— 要的话去 `UserAuthInterceptor.requiresLogin()` 加一条规则
+3. 业务逻辑放 `blog/service/`
+4. 可能被刷的写操作，加 `rateLimiter.checkOrThrow(...)`
 
 ---
 
@@ -476,7 +512,8 @@ src/main/resources/
 **Q：连接被反复关闭 / 一直连不上**
 程序会在连续失败 5 次后打印排查清单，并按 5 分钟一次重连。最常见的三个原因：
 
-1. **intents 权限**。除了三个基础事件，其他事件都要申请，而且「传递了无权限的 intents，websocket 会报错并直接关闭连接」。单聊/群聊属于 `GROUP_AND_C2C_EVENT (1 << 25)`。→ 去开放平台检查「单聊消息」「群聊消息」是否开通
+1. **intents 权限**。「传递了无权限的 intents，websocket 会报错并直接关闭连接」。
+   单聊/群聊属于 `GROUP_AND_C2C_EVENT (1 << 25)`。→ 去开放平台检查是否开通
 2. **AppSecret 不对**。重新复制，注意别带空格
 3. **网络**。本机若有代理，确认没拦 `api.bot.qq.com`
 
@@ -489,17 +526,15 @@ src/main/resources/
 
 **Q：热聊开了但机器人从不主动说话**
 **平台开关没开**。热聊的原料是"群里不带 @ 的消息"，而这类消息只在 QQ 开放平台开启
-**「接收所有消息」** 之后才会推过来。代码已经就绪（`GROUP_MESSAGE_CREATE` 分支），
-缺的是那个开关。验证方法：日志里搜 `收到群聊消息（全量模式`，一条都没有就是这个原因。
+**「接收所有消息」** 之后才会推过来。验证方法：日志里搜 `收到群聊消息（全量模式`，
+一条都没有就是这个原因。
 
-**Q：聊天回"我这边的本地模型好像没跑起来"**
-本机模型服务连不上。`/status` 可以看模型状态（管理员命令）。
-Windows 下还可以发 `/setlocal` 让程序试着自动拉起。
+**Q：聊天回复末尾出现"（本机模型服务没起来，这条先用云端回的…）"**
+本地模型没跑起来，这条**降级用了云端（按 token 计费）**。起来之后会自动切回本地。
+这条提示一个进程只出现一次，之后只记日志（WARN，搜"已降级到云端"）。
 
-**Q：聊天回"云端账户余额不足了（402）"**
-DeepSeek 账户欠费了。去控制台充值，或改用本地模型。
-
-**注意这句不是"连不上"** —— 网络不通、密钥不对、余额不足是三种完全不同的问题：
+**Q：怎么确认这次到底走了本地还是云端**
+看日志里的 `路由决定：本地（…）` / `路由决定：云端（…）` 那行 —— 那才是权威答案。
 
 | 回复里出现 | 真实原因 | 怎么办 |
 |---|---|---|
@@ -509,62 +544,95 @@ DeepSeek 账户欠费了。去控制台充值，或改用本地模型。
 | 被限流（429） | 请求太频繁 | 等一会 |
 | **连不上云端服务（网络不通或超时）** | **真的是网络问题** | 查网络、代理、防火墙 |
 
-**Q：聊天回复末尾出现"（本机模型服务没起来，这条先用云端回的…）"**
-本地模型没跑起来，这条**降级用了云端（按 token 计费）**。起来之后会自动切回本地。
-这条提示一个进程只出现一次，之后只记日志（WARN，搜"已降级到云端"）。
-
-**Q：怎么确认这次到底走了本地还是云端**
-看日志里的 `路由决定：本地（…）` / `路由决定：云端（…）` 那行 —— 那才是权威答案。
-启动横幅上的「本地节点：离线」不能当结论。
-
-**Q：`/status` 说没有权限**
-你的标识不在 QQ 管理员名单里（`data/admin-ids.txt`）。日志里"收到消息 用户(xxxxxx…)"
-会打印标识前缀，拿到完整的填进 `application-local.yml` 的 `app.admin.user-ids`。
-
-**Q：回复超过 5 分钟才生成，发不出去**
-腾讯规定被动回复的 `msg_id` 只有 5 分钟有效。超时后程序会自动降级成主动消息，
-但主动消息有每日配额。
-
-### 博客相关
+### 博客相关 —— 基础
 
 **Q：打开 `/client/main` 显示"本站的博客功能当前未开启"**
 本机配置里博客默认是关的。启动时加 `--app.blog.enabled=true`（见 §2.2）。
 
 **Q：启动报 `Migration checksum mismatch`**
 改了已经执行过的 Flyway 脚本。**改过的脚本不要回改** —— 要调整表结构就新建
-`V3__xxx.sql`。真要修（只在开发期、且数据可丢时）：
-
-```sql
--- 连上库手动删掉那条历史记录，或者直接删库重建
-DELETE FROM flyway_schema_history WHERE version = '1';
-```
+`V4__xxx.sql`。
 
 **Q：后台登录不了，密码是什么**
 密码在 `application-local.yml` 的 `app.blog.admin.password`。
-**注意它只在"首次启动、表为空"时生效** —— 表里已经有账号了，改配置不会改密码。
-真要改密码，得进数据库改 `password_hash`（用 BCrypt 重新生成一个）。
+**注意它只在"首次启动、表为空"时生效**。真要改密码，得进数据库改 `password_hash`
+（用 BCrypt 重新生成一个）。
 
 **Q：后台登录之后过一会就要重新登录**
-`app.blog.jwt.secret` 是空的 → 每次启动随机生成一个密钥 → 重启后旧令牌全失效。
-填一个固定的长随机串（至少 32 字符）：
-
-```bash
-openssl rand -base64 48
-```
-
-**Q：点赞数点了没变 / 一直在涨**
-**这是设计如此**：不做任何去重，点一次 +1。连点十次就是 +10。
-要改成"一人一赞"见 `项目说明.md` §五.11。
-
-**Q：浏览量刷新一次就涨**
-同上，`getPublishedBySlug()` 里每次访问都 `incrementView()`。
+`app.blog.jwt.secret` 是空的 → 每次启动随机生成密钥 → 重启后旧令牌全失效。
+填一个固定的长随机串（至少 32 字符）：`openssl rand -base64 48`
 
 **Q：改了 HTML/CSS/JS 之后页面没变**
 运行中的实例读的是 `target/classes/`，**要 `mvn compile`**。
 
 **Q：文章里的图片显示不出来**
-现在只支持外链图片（正文里写 `![](https://...)`）。图片上传（OSS 直传）还没做。
+现在只支持外链图片（正文里写 `![](https://...)`）。图片上传还没做。
+
+### 博客相关 —— 用户体系（新增）
+
+**Q：注册不了，提示"这个用户名已经被注册了"**
+换一个。如果确定没人用过，可能是并发撞了唯一索引 —— 重试一次即可。
+
+**Q：提示"密码连续错了太多次，请 X 分钟后再试"**
+同一个**账号名**连错 5 次会锁 5 分钟（`AppUserAuthService.MAX_FAILURES` / `LOCK_SECONDS`）。
+这是防止有人盯着一个账号暴力猜密码。等 5 分钟，或者换个账号。
+
+**Q：提示"操作太频繁"**
+四条限流在起作用（都在 `app.blog.rate-limit.*` 里改，设成 `0` 可关闭）：
+
+| 场景 | 默认阈值 | 按什么限 | 配置项 |
+|---|---|---|---|
+| 注册 | 每 IP 每分钟 5 个 | **IP** | `app.blog.rate-limit.register-per-minute` |
+| 登录 | 每 IP 每分钟 10 次 | **IP** | `app.blog.rate-limit.login-per-minute` |
+| 评论 | 每用户每分钟 20 条 | **用户** | `app.blog.rate-limit.comment-per-minute` |
+| 发帖 | 每用户每小时 10 篇 | **用户** | `app.blog.rate-limit.post-per-hour` |
+
+> 全部设成 `0` 或负数就是**关闭对应限流**（调试时用，生产别这么配）。
+
+> **注意"按 IP"的坑**：如果你在 Nginx 后面部署，**必须**把
+> `app.blog.trust-proxy` 设成 `true`，否则所有人共享代理 IP，一个人刷就全网被挡。
+> 反过来，如果没有代理却设成 `true`，攻击者伪造 `X-Forwarded-For` 就能绕过限流。
+
+**Q：我被封禁了，提示"这个账号已被停用"**
+站长在 `/admin/work/users` 把你停用了。而且**封禁时你手上所有令牌都被立刻注销了** ——
+不是等令牌自然过期，是当场踢下线。
+
+**Q：登录成功了，但刷新页面又变成未登录**
+检查浏览器 localStorage 里的 `mybotweb_user_token` 还在不在。
+如果后台登录着、前台没登录，那是正常的 —— **两套令牌互不相通**。
+
+**Q：为什么我用管理员账号在 `/client/auth` 登不进去**
+**故意的**。管理员令牌的 `type` 是 `ADMIN`，用户接口只认 `USER`。
+管理员要发文走 `/admin/work/articles`，那边有完整编辑器。
+
+**Q：评论太长了发不出去**
+上限 1000 字（`comment` 表的 `VARCHAR(1000)`）。
+
+**Q：回复别人的评论，为什么显示成跟其他人平级？**
+**这是设计**。评论只存两层：楼 + 楼中楼。你回复"楼中楼里的某人"时，
+新评论会被抬到顶层评论下面跟那条回复并列，但会带上"回复 @某人"。
+好处是拉一页评论只要一条 SQL，不用递归。
+
+**Q：能看到自己发过哪些帖子吗 / 能删吗**
+`/client/post` 页面下方有"我的帖子"，能删。**只能删自己的** —— 删别人的会返回 403。
+
+### 博客相关 —— 运维
 
 **Q：服务器上内存占用显示 93%，但 `free -m` 说还有 2G**
 已修。旧算法用的是 `MemFree`（不含 buff/cache），现在读 `/proc/meminfo` 的
-`MemAvailable`。详见 `开发进度.md` §十四。
+`MemAvailable`。
+
+**Q：日志文件在哪、怎么清理**
+- 当前：`logs/mybotweb.log`
+- 归档：`logs/2026-10-16/mybotweb.0.log`（**按天分目录**）
+- 清理：`rm -rf logs/2026-10-16`（删掉整个日期目录，不用挑文件名）
+- 自动策略写在 `logback-spring.xml`：保留 30 天、总量上限 2GB
+
+**Q：日志里时间不对 / 和服务器时区差 8 小时**
+检查 `logback-spring.xml` 的 pattern 用的是本地时区。系统时区不对的话先
+`timedatectl set-timezone Asia/Shanghai`。
+
+**Q：`/status` 显示的内存和后台 `/admin/work/system` 对不上**
+两者采集的时间点不同，而且 `/status` 里的"整机内存"和"堆内存"是两个概念：
+堆是 JVM 自己的，整机是整个服务器的。再叠加上 15 秒缓存（首页那个接口），
+数字本来就会有小幅差异。
