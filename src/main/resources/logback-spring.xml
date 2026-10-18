@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ============================================================
+  logback-spring.xml —— 日志按"天"分文件夹
+
+  【改动前是什么样】
+    application.yml 里只有 logging.file.name = logs/mybotweb.log，
+    靠 Boot 自带策略按 10MB 切。切出来的文件全部平铺在 logs/ 下：
+        logs/mybotweb.log
+        logs/mybotweb.log.2026-10-16.0.gz
+        logs/mybotweb.log.2026-10-16.1.gz
+        logs/mybotweb.log.2026-10-17.0.gz
+        ...
+    日子一久，一个目录里几十个长得很像的文件，想删掉上周的直接不知道从哪下手，
+    只能一条条挑文件名。这就是"清理起来麻烦"的根源。
+
+  【改动后】
+        logs/mybotweb.log                    ← 当前正在写的（始终只有一个）
+        logs/2026-10-16/mybotweb.0.log       ← 16 号滚出去的
+        logs/2026-10-16/mybotweb.1.log
+        logs/2026-10-17/mybotweb.0.log       ← 17 号
+    清理 = 删掉整个日期文件夹，rm -rf logs/2026-10-16 一条命令，不用挑文件名。
+
+  【为什么当前日志不放在当天目录里】
+    RollingFileAppender 的 <file> 是一个固定字符串，不会随日期变化。
+    如果想让"今天的"也落在日期目录里，只能靠启动时算日期 → 应用多天不重启
+    就会一直往启动那天的目录里写。所以这里采用标准做法：
+    当前日志固定一个文件，跨天时由 fileNamePattern 归档进对应日期目录。
+
+  【为什么还用 logback-spring.xml 而不是继续用 application.yml】
+    Boot 的 logging.logback.rollingpolicy.* 只能配文件名和大小，
+    不支持在 fileNamePattern 里写子目录 —— 按天分目录这事它做不到。
+  ============================================================
+-->
+<configuration>
+
+    <property name="LOG_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{40} - %msg%n"/>
+
+    <!-- ========================================================
+         控制台输出
+         ======================================================== -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <!-- 编码写死 UTF-8：不写就跟着系统默认走，
+                 Windows 上是 GBK、Linux 上一般是 UTF-8，
+                 同一个 jar 在两台机器写出来的日志编码不一样 -->
+            <charset>UTF-8</charset>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- ========================================================
+         文件输出 —— 按天分目录
+         ======================================================== -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+
+        <!-- 当前日志。固定路径，不随日期变（原因见文件头注释） -->
+        <file>logs/mybotweb.log</file>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <!--
+              关键就在这一行：%d{yyyy-MM-dd} 后面直接跟 / ，
+              Logback 会把它当目录名，滚动时自动 mkdir。
+              同时按时间（换天）和大小（50MB）两个条件触发滚动。
+            -->
+            <fileNamePattern>logs/%d{yyyy-MM-dd}/mybotweb.%i.log</fileNamePattern>
+
+            <!-- 单个文件 50MB 就滚。调大一点是为了减少同一天里的碎片文件 -->
+            <maxFileSize>50MB</maxFileSize>
+
+            <!-- 保留 30 天。超过的日期目录会被整个删掉 -->
+            <maxHistory>30</maxHistory>
+
+            <!-- 总量上限。满 2GB 时从最老的日期目录开始删，
+                 防止"每天日志都不大，但攒了半年"把盘吃满 -->
+            <totalSizeCap>2GB</totalSizeCap>
+        </rollingPolicy>
+
+        <encoder>
+            <charset>UTF-8</charset>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- ========================================================
+         级别
+         ======================================================== -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+
+    <!-- 本项目包下 DEBUG，方便开发期看清每步流程 -->
+    <logger name="com.mybotweb" level="DEBUG"/>
+
+</configuration>

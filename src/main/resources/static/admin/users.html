@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户管理 · WN 后台</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/admin.css">
+</head>
+
+<!-- data-page="users" → admin.js 里跑 initUsersPage() -->
+<body data-page="users">
+
+<!-- 顶栏由 admin.js 按 NAV_LINKS 渲染，四个页面共用一份 -->
+<header class="admin-bar" id="adminBar"></header>
+
+<main class="container-wide admin-main">
+    <div class="admin-head">
+        <div>
+            <h1>用户管理</h1>
+            <p class="sub">前台注册的用户。封禁后该用户立刻掉线，且在解封前无法再登录</p>
+        </div>
+        <button class="btn btn-sm" id="refreshBtn">刷新</button>
+    </div>
+
+    <!-- 表格由 admin.js 填进来 -->
+    <div id="usersBox"></div>
+</main>
+
+<script src="/js/common.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>

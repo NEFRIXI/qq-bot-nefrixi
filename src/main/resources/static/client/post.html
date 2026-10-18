@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>写文章 · WN</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+
+<!-- data-page="post" → user.js 里跑 initPostPage()。
+     本页不引 main.js：那是阅读页的（列表/详情/音乐栏），
+     写作页用不到，少加载一个文件 -->
+<body data-page="post">
+
+<div class="page-main">
+
+    <header class="topbar">
+        <div class="container topbar-inner">
+            <a class="brand" href="/client">
+                <span class="brand-dot"></span>
+                WN
+            </a>
+            <nav class="topbar-links">
+                <a href="/client/main">全部文章</a>
+                <a href="/client">返回首页</a>
+                <span class="topbar-user-box" id="userBox"></span>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+
+        <div class="page-head">
+            <h1>写文章</h1>
+            <p>正文支持 Markdown：<code># 标题</code>、<code>**粗体**</code>、<code>`代码`</code> 都能用</p>
+            <div class="head-divider"><i></i><i></i><i></i></div>
+        </div>
+
+        <!-- 未登录时，user.js 会把这里换成"请先登录"的提示 -->
+        <div id="postFormBox">
+            <div class="card post-card">
+                <form id="postForm" autocomplete="off">
+                    <div class="field">
+                        <label for="postTitle">标题</label>
+                        <input class="input" id="postTitle" maxlength="200"
+                               placeholder="给这篇文章起个名字" required>
+                    </div>
+
+                    <div class="field">
+                        <label for="postContent">正文</label>
+                        <textarea class="input post-content" id="postContent"
+                                  placeholder="开始写吧…" required></textarea>
+                        <p class="hint">
+                            发布后所有人可见。想改的话，目前只能删掉重发。
+                        </p>
+                    </div>
+
+                    <div class="post-actions">
+                        <button class="btn btn-primary" type="submit" id="postSubmit">发布</button>
+                        <span class="post-actions-hint" id="postActionsHint"></span>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 我发过的帖子 -->
+        <section class="my-posts">
+            <h2 class="my-posts-title">我发过的</h2>
+            <div id="myPostsBox"></div>
+        </section>
+
+    </main>
+
+    <footer class="site-foot container">
+        <p>WN · 个人站点</p>
+    </footer>
+
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/user.js"></script>
+</body>
+</html>
