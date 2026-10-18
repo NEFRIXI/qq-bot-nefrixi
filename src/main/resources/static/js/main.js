@@ -19,47 +19,43 @@
     let likedInThisSession = false;
 
     /* ========================================================
-       ★★★ 左侧音乐栏的数据 ★★★
+       ★★★ 左侧音乐栏的歌曲数据 ★★★
        --------------------------------------------------------
-       改这个数组就能换歌，别的地方一行都不用动。
+       【现在真正生效的歌单不在这里了】
 
-       每个字段：
+       是外挂目录里的那个 music/list.json —— 页面加载时 fetch 过来渲染。
+       加歌只改那个文件 + 把 mp3 丢进同一个目录，不用碰这个 JS，
+       更不用重新打包 jar。
+
+       下面这个 DEFAULT_MUSIC_LIST 只是【兜底】：
+       list.json 取不到（目录没建、JSON 写错了、请求失败）时用它，
+       保证页面不会空一片。两边不一致时，以 list.json 为准。
+
+       【每个字段】
          title  卡片底部的歌名
+         file   音频文件名（相对 /music/ 的路径，可以带子目录）
+         url    完整地址。填了就直接用它，不再拼 /music/ —— 留给以后接外链
          year   鼠标移上去时左上角弹出的年份标签（留空就不显示）
-         cover  封面图地址。填 null 会自动用主题色渐变 + 标题首字顶上，
-                这样你还没做封面的时候页面也不难看
-         url    音频地址
+         cover  封面图地址。填 null 会用主题色渐变 + 标题首字顶上
 
-       【音频文件放哪儿】
-       丢进 src/main/resources/static/music/ 目录，这里写 /music/01.mp3。
-       static 下的文件是按路径直接访问的，不用写接口。
-       注意：放完文件要重新构建一次（mvn compile），
-       static 里的东西才会被复制到 target 下面。
-
-       【20 首的位置都在这儿了】照着一行一行往下填就行。
+       year / cover / url 都可以不写，normalizeSong() 会给默认值。
        ======================================================== */
-    const MUSIC_LIST = [
-        { title: '曲目 01', year: '2024', cover: null, url: '/music/01.mp3' },
-        { title: '曲目 02', year: '2024', cover: null, url: '/music/02.mp3' },
-        { title: '曲目 03', year: '2024', cover: null, url: '/music/03.mp3' },
-        { title: '曲目 04', year: '2024', cover: null, url: '/music/04.mp3' },
-        { title: '曲目 05', year: '2024', cover: null, url: '/music/05.mp3' },
-        { title: '曲目 06', year: '2025', cover: null, url: '/music/06.mp3' },
-        { title: '曲目 07', year: '2025', cover: null, url: '/music/07.mp3' },
-        { title: '曲目 08', year: '2025', cover: null, url: '/music/08.mp3' },
-        { title: '曲目 09', year: '2025', cover: null, url: '/music/09.mp3' },
-        { title: '曲目 10', year: '2025', cover: null, url: '/music/10.mp3' },
-        { title: '曲目 11', year: '2025', cover: null, url: '/music/11.mp3' },
-        { title: '曲目 12', year: '2025', cover: null, url: '/music/12.mp3' },
-        { title: '曲目 13', year: '2025', cover: null, url: '/music/13.mp3' },
-        { title: '曲目 14', year: '2025', cover: null, url: '/music/14.mp3' },
-        { title: '曲目 15', year: '2025', cover: null, url: '/music/15.mp3' },
-        { title: '曲目 16', year: '2026', cover: null, url: '/music/16.mp3' },
-        { title: '曲目 17', year: '2026', cover: null, url: '/music/17.mp3' },
-        { title: '曲目 18', year: '2026', cover: null, url: '/music/18.mp3' },
-        { title: '曲目 19', year: '2026', cover: null, url: '/music/19.mp3' },
-        { title: '曲目 20', year: '2026', cover: null, url: '/music/20.mp3' }
+    const DEFAULT_MUSIC_LIST = [
+        { title: '深海少女', file: '初音ミク - 深海少女.mp3' },
+        { title: '夢と葉桜 (梦与叶樱)', file: '初音ミク、青木月光 - 夢と葉桜 (梦与叶樱).mp3' },
+        { title: '愛言葉Ⅳ (爱的言语 Ⅳ)', file: 'DECO×27、初音ミク - 愛言葉Ⅳ (爱的言语 Ⅳ).mp3' },
+        { title: 'ツギハギスタッカート (拼凑的断音)', file: 'hanser - ツギハギスタッカート (拼凑的断音).mp3' },
+        { title: '夏虫', file: '洛天依 - 夏虫.mp3' },
+        { title: '一花依世界', file: '洛天依 - 一花依世界.mp3' },
+        { title: '光与影的对白', file: '洛天依 - 光与影的对白.mp3' },
+        { title: '不负韶光', file: '多多poi、花玲 - 不负韶光.mp3' }
     ];
+
+    /** 歌单地址。想换个文件名就改这里 */
+    const MUSIC_LIST_URL = '/music/list.json';
+
+    /** 实际在用的歌单。list.json 取到之后会被整个替换掉 */
+    let MUSIC_LIST = DEFAULT_MUSIC_LIST;
 
     // 当前在放第几首（数组下标）。null = 没在放
     let currentPlayingId = null;
@@ -391,16 +387,102 @@
        音乐时间轴（左侧那一栏）
        ======================================================== */
 
+    /**
+     * 起左栏。
+     *
+     * 现在是<b>异步</b>的：先去取外挂的歌单，取回来再画卡片。
+     * 调用方不用等它 —— 左栏晚几十毫秒没画出来无所谓，
+     * 右边文章列表该多快还是多快。
+     */
     function initMusicRail() {
         const track = $('#musicTrack');
         if (!track) {
-            return;      // 当前页面没有左栏
+            return Promise.resolve();      // 当前页面没有左栏
         }
 
+        return loadMusicList().then(function (list) {
+            MUSIC_LIST = list;
+            renderRail(track);
+        });
+    }
+
+    /**
+     * 取歌单。
+     *
+     * <p>顺序：外挂的 {@code music/list.json} → 内置的 {@code DEFAULT_MUSIC_LIST}。
+     * 任何一步出错都静默降级，绝不让左栏变成一片空白。
+     *
+     * <p>用 {@code cache: 'no-cache'} 而不是默认值：改完 list.json
+     * 刷新页面就该看到新歌，不该被浏览器缓存拖一小时。
+     */
+    async function loadMusicList() {
+        try {
+            const response = await fetch(MUSIC_LIST_URL, { cache: 'no-cache' });
+            if (!response.ok) {
+                throw new Error('HTTP ' + response.status);
+            }
+
+            const data = await response.json();
+            if (!Array.isArray(data)) {
+                throw new Error('顶层不是数组');
+            }
+
+            const list = data.map(normalizeSong).filter(Boolean);
+            if (list.length === 0) {
+                throw new Error('一条有效曲目都没有（每条至少要有 title 或 file）');
+            }
+            return list;
+
+        } catch (e) {
+            console.warn('歌单 ' + MUSIC_LIST_URL + ' 没取到（' + e.message
+                + '），改用内置的 ' + DEFAULT_MUSIC_LIST.length + ' 首');
+            // 【兜底这份也必须过一遍 normalize】
+            // DEFAULT_MUSIC_LIST 里写的是 file 而不是 url，
+            // 直接 return 的话 togglePlay 拿到的 song.url 是 undefined，
+            // 表现就是"卡片点了有反应、但没声音"，而且控制台不报错。
+            return DEFAULT_MUSIC_LIST.map(normalizeSong).filter(Boolean);
+        }
+    }
+
+    /**
+     * 把一条歌单数据补齐成渲染需要的形状。
+     *
+     * <p>灵活点在这里：只写 {@code file} 也行（最常见），只写 {@code url} 也行
+     * （留给以后接外链）。两样都没给就返回 null，由调用方过滤掉 ——
+     * 宁可少画一张，也不画一张点了没反应的死卡片。
+     *
+     * @param raw list.json 里的一条原始数据
+     * @return 补齐后的对象，或 null（这条数据不可用）
+     */
+    function normalizeSong(raw) {
+        if (!raw) {
+            return null;
+        }
+
+        const url = raw.url || (raw.file ? '/music/' + raw.file : '');
+        if (!url) {
+            return null;
+        }
+
+        return {
+            title: raw.title || '未命名',
+            year: raw.year || '',
+            cover: raw.cover || null,
+            url: url
+        };
+    }
+
+    /**
+     * 把卡片画出来。
+     *
+     * <p>和取数据分开是有意的：测逻辑的时候（rail-test.mjs）
+     * 直接调这个函数就行，不用管网络。
+     */
+    function renderRail(track) {
         if (MUSIC_LIST.length === 0) {
             track.innerHTML = '<div class="rail-empty">还没有添加音乐。'
-                + '<br><br>把 mp3 放进 static/music/，'
-                + '<br>再到 js/main.js 的 MUSIC_LIST 里填上曲目。</div>';
+                + '<br><br>把 mp3 丢进项目根目录的 music/，'
+                + '<br>再把文件名写进 music/list.json。</div>';
             return;
         }
 
@@ -408,6 +490,7 @@
         const oneRound = MUSIC_LIST.map(createSongCard).join('');
         track.innerHTML = oneRound + oneRound;
 
+        // 下面三个只在第一次渲染时跑。页面不会重复 init，所以不重复绑
         measureRail(track);
         bindRailClick(track);
         bindPlayerEvents();
@@ -531,7 +614,7 @@
         // 正常走不到这儿；真走到了基本只有一个原因：音频文件不在
         console.warn('播放失败：', error);
         const song = MUSIC_LIST[currentPlayingId];
-        toast('这首放不出来，检查文件在不在：' + (song ? song.url : ''), 'error');
+        toast('这首放不出来。确认文件在 music/ 目录里：' + (song ? song.url : ''), 'error');
     }
 
     /**

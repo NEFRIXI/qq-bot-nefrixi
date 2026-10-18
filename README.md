@@ -112,6 +112,24 @@ Spring Boot 同时激活多个 profile 是**后者覆盖前者**。jar 里带着
 ⚠️ 服务器上那台机器人的 AppID 是 `1905770351`（`bot_or_web`），本地是
 `1905783650`（`webbot`）—— **两台不同的机器人，传 jar 时别搞混**。
 
+**音乐目录不用跟着 jar 传。** `music/` 是外挂目录，和 jar 并排放着：
+
+```bash
+# 传歌（在 Windows 上执行）
+scp "新歌.mp3" wn-bot-r:/home/nefrix-r/botweb/music/
+
+# 改歌单
+ssh wn-bot-r
+nano /home/nefrix-r/botweb/music/list.json
+```
+
+**改完不用重启**，刷新网页就生效。所以以后加歌全程不碰 jar、不碰 systemd。
+
+> 目录是按"启动时的工作目录"找的，不是按 jar 位置。service 文件里的
+> `WorkingDirectory=/home/nefrix-r/botweb` 决定了 `./music` 指到这里。
+> 从别的目录启动就会找不到 —— 那时在配置里写绝对路径，
+> 或者用环境变量 `APP_MUSIC_DIR` 覆盖。
+
 ---
 
 ## 三、从零配置的三件事（当前已完成，留作换机器时参考）
@@ -315,9 +333,20 @@ node data-test/rail-test.mjs
 | 脚本 | 测什么 | 项数 |
 |---|---|---|
 | `frontend-test.mjs` | `escapeHtml` 转义、时间解析（Safari 兼容）、401 处理、POST 的 charset | 59 |
-| `rail-test.mjs` | 音乐时间轴：卡片数、`--step` 位移、点击播放、播完不循环、双卡片高亮同步 | 29 |
+| `rail-test.mjs` | 音乐时间轴：卡片数、`--step` 位移、点击播放、播完不循环、双卡片高亮同步、**外挂歌单与兜底** | 45 |
 
 > ⚠️ `user.js` 里的逻辑**没有对应的测试脚本**。
+
+**再看音乐文件能不能真的取到**（需要先起服务，见 §5.2 的启动命令）：
+
+```powershell
+pwsh -File data-test/music-url-test.ps1
+```
+
+它真发 HTTP，验 16 项：外挂目录生效没有、8 个文件在不在、`Content-Type` 对不对、
+支不支持 Range（拖进度条）、不存在的文件会不会老实 404、歌单和磁盘文件是否一一对应。
+
+用 `-BaseUrl http://111.231.80.13:8080` 可以直接验服务器上的部署。
 
 ### 5.4 手工验证用户体系（现在只能这样）
 
@@ -485,9 +514,27 @@ src/main/resources/
 │   ├── admin/                     登录 / 首页 / 文章 / 编辑 / 统计 / 系统 / users
 │   ├── css/                       common.css + main.css + admin.css
 │   ├── js/                        common.js + main.js + admin.js + user.js
-│   └── music/                     音乐文件
+│   └── music/                     ⭐ 兜底位置，平时是空的（见下）
 └── SysPrompt/                     人设层 + 场合规则层
 ```
+
+**项目根目录下还有一个 `music/`** —— 那是**外挂目录**，不在 jar 里：
+
+```
+<项目根>/
+├── music/                         ⭐ 外挂：真实歌单和 mp3 都在这
+│   ├── list.json                  歌单，改这个
+│   ├── README.md                  加歌指南
+│   └── *.mp3
+├── src/                           打进 jar 的
+└── pom.xml
+```
+
+后端把 `/music/**` 交给了这个目录（`config/StaticResourceConfig`），
+所以**加歌 = 丢 mp3 + 改 `list.json`**，不用 `mvn package`、不用重启、不用重传 jar。
+jar 里的 `static/music/` 只是兜底，平时空着。
+
+部署到服务器上也是同样结构 —— `music/` 和 jar 并排放在 `/home/nefrix-r/botweb/`。
 
 **加新斜杠命令**（三步，不用改任何现有文件）：
 1. `command/CommandNames.java` 加常量

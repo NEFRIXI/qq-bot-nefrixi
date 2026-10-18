@@ -12,8 +12,9 @@
 <body data-page="list">
 
 <!-- ==================== 左侧：音乐时间轴 ====================
-     卡片由 main.js 填进 #musicTrack，曲目数据在 main.js 的
-     MUSIC_LIST 数组里（20 首的位置都留好了）。
+     卡片由 main.js 填进 #musicTrack。
+     曲目数据来自项目根目录的 music/list.json（外挂的，改完刷新页面就生效，
+     不用重新打包 jar），取不到时用 main.js 里的 DEFAULT_MUSIC_LIST 兜底。
 
      这一栏是通高的，不跟着右边文章滚 —— 滚动权交给 .page-main。
      鼠标移进来会暂停滚动，方便挑歌。 -->
