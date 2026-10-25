@@ -1,19 +1,16 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="paper">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>写文章 · WN 后台</title>
+    <title>编辑文章 · WN 后台</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <meta name="description" content="WN 后台编辑文章。">
+    <meta name="robots" content="noindex,nofollow">
     <link rel="stylesheet" href="/css/common.css">
     <link rel="stylesheet" href="/css/admin.css">
 </head>
 
-<!--
-  同一个页面干两件事：
-    /admin/work/articles/new     → 新建（标题显示"写新文章"，没有删除按钮）
-    /admin/work/articles/12/edit → 编辑（标题显示"编辑文章"，带删除按钮）
-  admin.js 从地址栏里判断是哪种。
--->
 <body data-page="article-edit">
 
 <header class="admin-bar" id="adminBar"></header>
@@ -21,10 +18,9 @@
 <main class="container-wide admin-main">
     <div class="admin-head">
         <div>
+            <!-- 新建和编辑共用这一页，标题与副题由 admin.js 改 -->
             <h1 id="pageTitle">编辑文章</h1>
-            <p class="sub">
-                编号 <span id="editId">—</span> · 正文用 Markdown 写
-            </p>
+            <p class="sub">编号 <span id="editId">—</span> · 正文用 Markdown 写</p>
         </div>
         <a class="btn btn-sm" href="/admin/work/articles">返回列表</a>
     </div>
@@ -32,29 +28,23 @@
     <div id="formBox">
         <form id="articleForm">
             <div class="edit-grid">
-
-                <!-- 左边：标题和正文，占主要宽度 -->
+                <!-- 左：正文。宽度给满，写长文时才用得上 -->
                 <div class="edit-main">
                     <div class="card">
                         <div class="field">
                             <label for="titleInput">标题</label>
-                            <input class="input" id="titleInput" maxlength="200"
-                                   placeholder="给这篇文章起个名字">
+                            <input class="input" id="titleInput" maxlength="200">
                         </div>
 
                         <div class="field">
                             <label for="contentInput">正文</label>
-                            <textarea class="textarea textarea-mono" id="contentInput"
-                                      placeholder="# 小标题&#10;&#10;正文内容……&#10;&#10;- 列表项&#10;- 列表项"></textarea>
-                            <p class="hint">
-                                支持 Markdown：标题(#)、列表(-)、引用(&gt;)、
-                                代码块(```)、表格、链接、图片
-                            </p>
+                            <textarea class="textarea textarea-mono" id="contentInput"></textarea>
+                            <p class="hint">支持 # 标题、**粗体**、`代码`、&gt; 引用、- 列表</p>
                         </div>
                     </div>
                 </div>
 
-                <!-- 右边：状态和设置 -->
+                <!-- 右：发布信息。窄栏，和左边形成主次 -->
                 <aside class="edit-side">
                     <div class="card">
                         <div class="field">
@@ -63,25 +53,18 @@
                                 <option value="1" selected>发布（所有人可见）</option>
                                 <option value="0">存草稿（只有自己可见）</option>
                             </select>
-                            <p class="hint">选"存草稿"就只是保存，站点上看不到</p>
                         </div>
 
                         <div class="field">
-                            <label for="slugInput">地址短名</label>
-                            <input class="input" id="slugInput" maxlength="120"
-                                   placeholder="留空自动生成">
-                            <p class="hint">
-                                文章地址里的那一段，只能用小写字母、数字和短横线。
-                                留空的话会从标题自动生成
-                            </p>
+                            <label for="slugInput">地址标识</label>
+                            <input class="input" id="slugInput" maxlength="120">
+                            <p class="hint">留空会自动生成。改过的地址，旧链接就失效了。</p>
                         </div>
 
                         <div class="field">
                             <label for="summaryInput">摘要</label>
                             <textarea class="textarea" id="summaryInput" maxlength="300"
-                                      style="min-height: 84px"
-                                      placeholder="留空自动截取正文开头"></textarea>
-                            <p class="hint">显示在文章列表里，最多 300 字</p>
+                                      style="min-height: 84px"></textarea>
                         </div>
 
                         <div class="form-actions">
@@ -90,10 +73,9 @@
                         </div>
                     </div>
 
-                    <!-- 时间和浏览量，编辑已有文章时才有内容 -->
+                    <!-- 创建时间 / 修改时间 / 数据：只在编辑已有文章时出现 -->
                     <div class="card" id="metaBox"></div>
                 </aside>
-
             </div>
         </form>
     </div>

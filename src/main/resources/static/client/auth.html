@@ -4,13 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>登录 / 注册 · WN</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <meta name="description" content="登录或注册后可以发帖和评论。">
+    <meta name="theme-color" content="#0B0A12">
     <link rel="stylesheet" href="/css/common.css">
     <link rel="stylesheet" href="/css/main.css">
 </head>
 
+<!-- 本页没有 #userBox：顶栏不显示登录态（还没登录，也没必要显示"登录"链接） -->
 <body data-page="auth">
 
 <div class="page-main">
+
     <header class="topbar">
         <div class="container topbar-inner">
             <a class="brand" href="/client">
@@ -19,39 +24,40 @@
             </a>
             <nav class="topbar-links">
                 <a href="/client/main">全部文章</a>
-                <a href="/client">返回首页</a>
+                <a href="/client">首页</a>
             </nav>
         </div>
     </header>
 
     <main class="container">
         <div class="card auth-card">
+            <!-- 标题与副标题由 user.js 按当前 tab 改写（登录 / 注册） -->
             <h1 class="auth-title" id="authTitle">登录</h1>
             <p class="auth-sub" id="authSub">登录后可以发帖和评论</p>
 
-            <!-- 两个 tab 切换登录 / 注册。用的是同一张卡片，
-                 而不是两个独立页面 —— 用户点错了不用后退 -->
             <div class="auth-tabs" role="tablist">
-                <button type="button" class="auth-tab is-active" data-tab="login" role="tab">登录</button>
-                <button type="button" class="auth-tab" data-tab="register" role="tab">注册</button>
+                <button class="auth-tab is-active" type="button" data-tab="login" role="tab">登录</button>
+                <button class="auth-tab" type="button" data-tab="register" role="tab">注册</button>
             </div>
 
-            <!-- ---- 登录 ---- -->
+            <!-- 用 <form> 而不是一堆 <div>：按回车就能提交，浏览器原生支持，
+                 不需要自己监听键盘事件。user.js 会拦掉默认提交改成异步请求。 -->
             <form id="loginForm" class="auth-form" autocomplete="on">
                 <div class="field">
                     <label for="loginUsername">用户名</label>
                     <input class="input" id="loginUsername" name="username"
                            autocomplete="username" maxlength="50" required>
                 </div>
+
                 <div class="field">
                     <label for="loginPassword">密码</label>
                     <input class="input" id="loginPassword" name="password" type="password"
                            autocomplete="current-password" maxlength="72" required>
                 </div>
+
                 <button class="btn btn-primary auth-submit" type="submit" id="loginBtn">登录</button>
             </form>
 
-            <!-- ---- 注册 ---- -->
             <form id="registerForm" class="auth-form" autocomplete="on" hidden>
                 <div class="field">
                     <label for="regUsername">用户名</label>
@@ -59,30 +65,35 @@
                            autocomplete="username" maxlength="50" required>
                     <p class="hint">3~50 位，只能用字母、数字、下划线、连字符</p>
                 </div>
+
                 <div class="field">
                     <label for="regNickname">昵称（可不填）</label>
                     <input class="input" id="regNickname" name="nickname"
                            maxlength="50" placeholder="留空就用用户名">
                 </div>
+
                 <div class="field">
                     <label for="regPassword">密码</label>
                     <input class="input" id="regPassword" name="password" type="password"
                            autocomplete="new-password" maxlength="72" required>
                     <p class="hint">至少 6 位</p>
                 </div>
+
                 <div class="field">
                     <label for="regPassword2">确认密码</label>
                     <input class="input" id="regPassword2" name="password2" type="password"
                            autocomplete="new-password" maxlength="72" required>
                 </div>
+
                 <button class="btn btn-primary auth-submit" type="submit" id="registerBtn">注册并登录</button>
             </form>
 
             <p class="auth-foot">
-                <a href="/client/main">先随便看看 →</a>
+                <a href="/client/main">先随便看看</a>
             </p>
         </div>
     </main>
+
 </div>
 
 <script src="/js/common.js"></script>

@@ -1,9 +1,12 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="paper">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>文章管理 · WN 后台</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <meta name="description" content="WN 后台文章管理。">
+    <meta name="robots" content="noindex,nofollow">
     <link rel="stylesheet" href="/css/common.css">
     <link rel="stylesheet" href="/css/admin.css">
 </head>
@@ -16,15 +19,12 @@
     <div class="admin-head">
         <div>
             <h1>文章管理</h1>
-            <p class="sub">草稿和已发布的都在这里</p>
+            <p class="sub">发布、转回草稿、删除。草稿只有你自己看得见。</p>
         </div>
 
-        <!--
-          筛选用普通链接而不是按钮：这样筛选条件会落到地址栏上
-          （?status=1），刷新页面不丢，也能直接收藏。
-          哪个是当前项由 admin.js 对比地址栏决定，加上 .is-active。
-        -->
         <div class="row-wrap">
+            <!-- 筛选是链接，不是按钮：状态在地址栏里，刷新和分享都能带过去。
+                 当前项由 admin.js 加 .is-active -->
             <div class="filter-group">
                 <a href="/admin/work/articles">全部</a>
                 <a href="/admin/work/articles?status=1">已发布</a>
@@ -34,7 +34,7 @@
         </div>
     </div>
 
-    <!-- 表格由 admin.js 填 -->
+    <!-- 表格由 admin.js 填（含空态与错误态的重试按钮） -->
     <div id="articleTableBox"></div>
 </main>
 

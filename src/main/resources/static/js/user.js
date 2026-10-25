@@ -294,6 +294,9 @@
 
     /** 渲染一条评论（含它的楼中楼） */
     function renderComment(c) {
+        // "回复"放在作者那一行的右端，不单独占一行。
+        // 单独占一行会多出一条空行，十条评论就多十行 ——
+        // 读者来信应该是密排的，不是一张张卡片。
         const replies = (c.replies || []).map(function (r) {
             const replyTo = r.replyToName
                 ? '<span class="cm-reply-to">回复 @' + escapeHtml(r.replyToName) + '</span> '
@@ -303,10 +306,10 @@
                 + '  <div class="cm-head">'
                 + '    <b class="cm-author">' + escapeHtml(r.authorName) + '</b>'
                 + '    <span class="cm-time">' + escapeHtml(formatTime(r.createdAt)) + '</span>'
+                + '    <button type="button" class="cm-act" data-reply="' + r.id + '"'
+                + '            data-name="' + escapeHtml(r.authorName) + '">回复</button>'
                 + '  </div>'
                 + '  <p class="cm-text">' + replyTo + escapeHtml(r.content) + '</p>'
-                + '  <button type="button" class="cm-act" data-reply="' + r.id + '"'
-                + '          data-name="' + escapeHtml(r.authorName) + '">回复</button>'
                 + '</li>';
         }).join('');
 
@@ -315,10 +318,10 @@
             + '  <div class="cm-head">'
             + '    <b class="cm-author">' + escapeHtml(c.authorName) + '</b>'
             + '    <span class="cm-time">' + escapeHtml(formatTime(c.createdAt)) + '</span>'
+            + '    <button type="button" class="cm-act" data-reply="' + c.id + '"'
+            + '            data-name="' + escapeHtml(c.authorName) + '">回复</button>'
             + '  </div>'
             + '  <p class="cm-text">' + escapeHtml(c.content) + '</p>'
-            + '  <button type="button" class="cm-act" data-reply="' + c.id + '"'
-            + '        data-name="' + escapeHtml(c.authorName) + '">回复</button>'
             + (replies ? '<ul class="cm-replies">' + replies + '</ul>' : '')
             + '</li>';
     }

@@ -153,11 +153,16 @@ public class AppUserAuthService {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "用户名或密码不对");
         }
 
-        // 【封禁检查放在密码校验之后】
+        // 【封禁 / 删除检查放在密码校验之后】
         // 反过来做的话，"这个账号被禁用了"这句话本身就成了一个用户名探测器。
         // 密码都对了才告诉他被封了，信息量才不会被白嫖。
-        if (user.getStatus() != null && user.getStatus() == AppUserStatus.BANNED) {
-            log.warn("已封禁用户尝试登录：{}", username);
+        //
+        // 被软删除的账号同样不让进：deleted_at 有值 = 这个人已经不存在了。
+        // 提示语和封禁共用一句，不透露"是被删了还是被封了"。
+        // 禁言（MUTED）不拦 —— 他能登录、能看，只是发不了东西。
+        if (user.getDeletedAt() != null
+                || (user.getStatus() != null && user.getStatus() == AppUserStatus.BANNED)) {
+            log.warn("已封禁或已删除用户尝试登录：{}", username);
             throw new BusinessException(ResultCode.FORBIDDEN, "这个账号已被停用，请联系站长");
         }
 

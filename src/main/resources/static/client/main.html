@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>文章 · WN</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <meta name="description" content="全部文章：按时间排列的篇目表。">
+    <meta name="theme-color" content="#0B0A12">
     <link rel="stylesheet" href="/css/common.css">
     <link rel="stylesheet" href="/css/main.css">
 </head>
@@ -11,22 +14,23 @@
 <!-- data-page 告诉 main.js 当前是哪个页面，它据此决定跑哪段逻辑 -->
 <body data-page="list">
 
-<!-- ==================== 左侧：音乐时间轴 ====================
-     卡片由 main.js 填进 #musicTrack。
-     曲目数据来自项目根目录的 music/list.json（外挂的，改完刷新页面就生效，
-     不用重新打包 jar），取不到时用 main.js 里的 DEFAULT_MUSIC_LIST 兜底。
+<!-- ==================== 左侧：曲目册 ====================
+     它是"一册曲目"，不是播放器：卡片上有编号、曲名、年份。
+     卡片由 main.js 填进 #musicTrack；歌单来自项目根的 music/list.json，
+     取不到时用 main.js 里的 DEFAULT_MUSIC_LIST 兜底。
 
-     这一栏是通高的，不跟着右边文章滚 —— 滚动权交给 .page-main。
-     鼠标移进来会暂停滚动，方便挑歌。 -->
+     这一栏通高、不跟着右边书页滚 —— 滚动权在 .page-main 手里。
+     鼠标移进来时走纸会停（纯 CSS），停住才挑得到歌。 -->
 <aside class="music-rail">
+    <p class="rail-head">CURATED<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="17" r="3.2"/><rect x="10.2" y="3" width="1.8" height="14"/><path d="M12 3.4 L18.4 5.6 L18.4 9.8 L12 7.6 Z"/></svg></p>
     <div class="track" id="musicTrack"></div>
 </aside>
 
-<!-- ==================== 右侧：文章主体 ==================== -->
+<!-- ==================== 右侧：书页 ==================== -->
 <div class="page-main">
 
-    <!-- 阅读进度条。滚动时从左往右长出来，宽度就是读完的比例。
-         定位是 fixed，所以它钉在屏幕顶上不跟着内容走 -->
+    <!-- 阅读进度：滚动时从左往右长出来，宽度就是读完的比例。
+         fixed 定位钉在书页顶端，不跟内容走 -->
     <div class="read-progress" id="readProgress"></div>
 
     <header class="topbar">
@@ -36,9 +40,9 @@
                 WN
             </a>
             <nav class="topbar-links">
-                <a href="/client/main">文章</a>
+                <a href="/client/main" class="is-active">文章</a>
                 <a href="/client/post">写文章</a>
-                <a href="/client">返回首页</a>
+                <a href="/client">首页</a>
                 <!-- 用户登录状态由 user.js 填这里：
                      未登录显示"登录"，已登录显示"昵称 + 退出" -->
                 <span class="topbar-user-box" id="userBox"></span>
@@ -50,9 +54,8 @@
         <div class="page-head">
             <h1>文章</h1>
             <p>记录、整理与分享</p>
-            <!-- 三段递减的分隔线，和欢迎页同一种做法。
-                 长度 44/26/10 递减，读起来像余音渐弱 -->
-            <div class="head-divider"><i></i><i></i><i></i></div>
+            <!-- 三段递减的分隔线：这套版式的记号，表示"这句话说完了" -->
+            <div class="head-divider" aria-hidden="true"><i></i><i></i><i></i></div>
         </div>
 
         <!-- 列表内容由 main.js 填进来。这里保持空着，
@@ -69,9 +72,15 @@
 
 </div>
 
-<!-- 全局播放器。
-     整个页面只有这一个 audio，换歌就是换它的 src ——
-     不是每张卡片配一个：20 个 audio 元素会各自预加载，白占内存 -->
+<!-- 播放控制条：只在列表页有这几个节点。
+     .rail-ctrl 自己是 display:flex，[hidden] 在 CSS 里被显式写回 none。 -->
+<div class="rail-ctrl" id="railCtrl" hidden>
+    <span class="rail-ctrl-name" id="railCtrlName">未在播放</span>
+    <button class="rail-ctrl-btn" id="railCtrlBtn" type="button" aria-label="播放或暂停">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+    </button>
+</div>
+
 <audio id="audioPlayer" preload="none"></audio>
 
 <script src="/js/common.js"></script>

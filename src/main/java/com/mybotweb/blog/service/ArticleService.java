@@ -292,6 +292,45 @@ public class ArticleService {
     }
 
     /**
+     * 只改发布状态（草稿 ⇄ 已发布）。
+     *
+     * <p><b>为什么不复用 {@link #update(Long, ArticleSaveRequest)}</b>
+     * 那个方法要完整正文：它会重算摘要、重算 contentHash、重新解析 slug。
+     * 而列表页只拿得到标题和状态 —— 为了切个状态先把整篇正文读回前端
+     * 再传上来，纯属绕远路，而且正文多传一个字符就顺手把内容也改了。
+     *
+     * <p>{@code publishedAt} 的处理规则和 {@code update} 完全一致：
+     * 只有"草稿 → 已发布"且从未发布过时才填当前时间；
+     * 反复上下架不动它，否则每次重新发布都会跳到列表最前面。
+     *
+     * @param id     文章 id
+     * @param status 目标状态：0 草稿 / 1 已发布
+     * @throws BusinessException 文章不存在、状态值非法
+     */
+    public void updateStatus(Long id, Integer status) {
+        validateStatus(status);
+
+        Article article = requireArticle(id);
+        Integer oldStatus = article.getStatus();
+
+        if (status.equals(oldStatus)) {
+            // 状态没变，什么都不做。也避免白写一次 updatedAt
+            return;
+        }
+
+        if (status == ArticleStatus.PUBLISHED && article.getPublishedAt() == null) {
+            article.setPublishedAt(LocalDateTime.now());
+        }
+
+        article.setStatus(status);
+        article.setUpdatedAt(LocalDateTime.now());
+        articleMapper.updateById(article);
+
+        log.info("切换文章状态：id={}，{} → {}",
+                id, ArticleStatus.describe(oldStatus), ArticleStatus.describe(status));
+    }
+
+    /**
      * 删除文章。
      *
      * <p><b>真删，不是逻辑删除</b> —— 项目里没配 MyBatis-Plus 的逻辑删除，

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.mybotweb.blog.auth.UserPrincipal;
 import com.mybotweb.blog.config.BlogProperties;
 import com.mybotweb.blog.entity.AppUser;
+import com.mybotweb.blog.entity.AppUserStatus;
 import com.mybotweb.blog.entity.Article;
 import com.mybotweb.blog.entity.ArticleStatus;
 import com.mybotweb.blog.entity.Comment;
@@ -139,6 +140,9 @@ public class CommentService {
      */
     @Transactional
     public CommentVo create(UserPrincipal user, Long articleId, String content, Long parentId) {
+        // 先拦人再拦内容：禁言的账号不管写什么内容都发不出去
+        requireCanPublish(user);
+
         String text = (content == null) ? "" : content.trim();
         if (text.isEmpty()) {
             throw new BusinessException(ResultCode.PARAM_ERROR, "评论内容不能为空");
@@ -209,6 +213,31 @@ public class CommentService {
         // 回填作者名，前端拿到就能直接渲染，不用再查
         CommentVo vo = toVo(comment, Map.of(user.getId(), user.displayName()));
         return vo;
+    }
+
+    /**
+     * 拦住不能发内容的人（禁言 / 封禁）。
+     *
+     * <p>和 {@code UserPostService#requireCanPublish} 是同一套判断，
+     * 但两处各自留一份：一个是发帖、一个是评论，将来完全可能只允许
+     * 其中一种（比如"禁言期可以评论但不能发帖"）。共用一个工具方法
+     * 反而会在那天变成障碍。
+     *
+     * <p>每次都查库，不从 {@code UserPrincipal} 读状态 ——
+     * 那个对象是登录那一刻的快照，禁言之后不会自动更新。
+     *
+     * @param user 当前登录用户
+     * @throws BusinessException 用户不存在，或已被禁言 / 封禁
+     */
+    private void requireCanPublish(UserPrincipal user) {
+        AppUser author = appUserMapper.selectById(user.getId());
+        if (author == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "用户不存在");
+        }
+        if (!AppUserStatus.canPublish(author.getStatus())) {
+            throw new BusinessException(ResultCode.FORBIDDEN,
+                    "账号" + AppUserStatus.describe(author.getStatus()) + "，不能发表评论");
+        }
     }
 
     /**

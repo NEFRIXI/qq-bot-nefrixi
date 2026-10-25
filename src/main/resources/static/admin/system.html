@@ -1,9 +1,12 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="paper">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>服务器状态 · WN 后台</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <meta name="description" content="WN 后台服务器状态。">
+    <meta name="robots" content="noindex,nofollow">
     <link rel="stylesheet" href="/css/common.css">
     <link rel="stylesheet" href="/css/admin.css">
 </head>
@@ -16,20 +19,13 @@
     <div class="admin-head">
         <div>
             <h1>服务器状态</h1>
-            <p class="sub">
-                内存、CPU、磁盘，以及 MySQL 和 Redis 通不通
-            </p>
+            <p class="sub">内存、CPU、磁盘、线程，以及数据库与 Redis 的连通性</p>
         </div>
-        <button class="btn btn-sm" id="refreshBtn" onclick="location.reload()">
-            重新检测
-        </button>
+        <!-- 真要重新取数就整页重载：这一页的数据全部是"读一次"的，
+             轮询没有意义，还会让数据库连接数忽高忽低 -->
+        <button class="btn btn-sm" id="refreshBtn" onclick="location.reload()">重新检测</button>
     </div>
 
-    <!--
-      这个页面读数据会慢一点：服务端要真的去连一次 MySQL 和 Redis。
-      数据库没启动时要等连接超时（最多 10 秒），
-      所以 admin.js 会先显示"正在检测"。
-    -->
     <div id="statusBox"></div>
 </main>
 

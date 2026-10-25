@@ -22,13 +22,22 @@ import java.util.List;
 /**
  * 管理员对普通用户的管理。
  *
- * <p>目前只有两个动作：查看列表、封禁/解封。
+ * <p>三个动作：查看列表、封禁 / 禁言 / 解封、软删除。
  *
- * <p><b>为什么没有"删除用户"</b>
- * 删掉一个用户之后，他发过的评论和帖子会变成"已注销用户"——
- * 数据还在但没法追溯。而封禁是可逆的：先停用，必要时能恢复，
- * 历史内容也完整保留。真要清理，那是另一个需要慎重设计的动作
- * （要考虑内容怎么办、是否留审计），不该顺手加在这里。
+ * <p><b>封禁和禁言的区别</b>
+ * 封禁连登录都不行；禁言能登录、能浏览，只是发不了帖也评不了论。
+ * 大多数违规是"话说得不对"而不是"这个人不该存在"，
+ * 直接封禁会把他的历史内容一起藏起来，处罚和过错不对等。
+ *
+ * <p><b>为什么"删除"是软删除</b>
+ * 直接 {@code DELETE} 掉一行，他发过的文章和评论就成了孤儿 ——
+ * {@code article.author_user_id} 和 {@code comment.user_id}
+ * 指向一个不存在的 id。页面会显示"已注销用户"，
+ * 但真要追溯"这条内容到底是谁发的"、或者手滑删错了要恢复，
+ * 数据已经没了。
+ *
+ * <p>所以删除只往 {@code deleted_at} 写一个时间戳，查询时过滤掉：
+ * 表现上这个人消失了，实际上行还在，随时能捞回来。
  *
  * @author mybotweb
  */
@@ -59,6 +68,8 @@ public class AdminUserManageService {
         Page<AppUser> p = appUserMapper.selectPage(
                 new Page<>(current, pageSize),
                 new LambdaQueryWrapper<AppUser>()
+                        // 软删除的用户不出现在列表里，但数据还在库里
+                        .isNull(AppUser::getDeletedAt)
                         .orderByDesc(AppUser::getCreatedAt));
 
         List<AdminUserListItemVo> list = p.getRecords().stream()
@@ -88,7 +99,8 @@ public class AdminUserManageService {
     @Transactional
     public void updateStatus(Long id, Integer status) {
         if (!AppUserStatus.isValid(status)) {
-            throw new BusinessException(ResultCode.PARAM_ERROR, "状态值只能是 0（正常）或 1（封禁）");
+            throw new BusinessException(ResultCode.PARAM_ERROR,
+                    "状态值只能是 0（正常）/ 1（封禁）/ 2（禁言）");
         }
 
         AppUser user = appUserMapper.selectById(id);
@@ -110,8 +122,42 @@ public class AdminUserManageService {
             // 立刻踢下线。不踢的话，被封的人手上的令牌还能用一个星期
             int kicked = tokenRevokeStore.revokeAllOfUser(user.getUsername());
             log.warn("管理员封禁用户 {}，同时注销了 {} 个会话", user.getUsername(), kicked);
+        } else if (status == AppUserStatus.MUTED) {
+            // 禁言不踢线：他还能正常浏览，只是发不出去。
+            // 发帖和评论的入口每次都会查一次库，所以下一次动手就会被拦下，
+            // 不需要靠"让他重新登录"来生效
+            log.warn("管理员禁言用户 {}（保持登录，但发帖和评论都会被拒）", user.getUsername());
         } else {
             log.info("管理员解封用户 {}", user.getUsername());
         }
+    }
+
+    /**
+     * 软删除一个用户。
+     *
+     * <p>不执行 {@code DELETE}，只写 {@code deleted_at}：
+     * 他发过的文章和评论还在，作者查得到，误删了也能恢复。
+     *
+     * <p><b>删除必须同时踢掉他所有会话</b>，理由和封禁一样 ——
+     * 只从列表里藏起来、令牌还能用，等于自欺欺人。
+     *
+     * @param id 用户 id
+     * @throws BusinessException 用户不存在，或已经删过了
+     */
+    @Transactional
+    public void softDelete(Long id) {
+        AppUser user = appUserMapper.selectById(id);
+        if (user == null || user.getDeletedAt() != null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "用户不存在或已经被删除");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        user.setDeletedAt(now);
+        user.setUpdatedAt(now);
+        appUserMapper.updateById(user);
+
+        int kicked = tokenRevokeStore.revokeAllOfUser(user.getUsername());
+        log.warn("管理员删除用户 {}（软删除，文章和评论都还在），同时注销了 {} 个会话",
+                user.getUsername(), kicked);
     }
 }

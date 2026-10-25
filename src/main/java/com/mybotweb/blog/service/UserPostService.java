@@ -5,8 +5,11 @@ import com.mybotweb.blog.auth.UserPrincipal;
 import com.mybotweb.blog.config.BlogProperties;
 import com.mybotweb.blog.dto.ArticleSaveRequest;
 import com.mybotweb.blog.dto.PostCreateRequest;
+import com.mybotweb.blog.entity.AppUser;
+import com.mybotweb.blog.entity.AppUserStatus;
 import com.mybotweb.blog.entity.Article;
 import com.mybotweb.blog.entity.ArticleStatus;
+import com.mybotweb.blog.mapper.AppUserMapper;
 import com.mybotweb.blog.mapper.ArticleMapper;
 import com.mybotweb.blog.vo.ArticleListItemVo;
 import com.mybotweb.common.exception.BusinessException;
@@ -50,6 +53,8 @@ public class UserPostService {
 
     private final ArticleMapper articleMapper;
 
+    private final AppUserMapper appUserMapper;
+
     private final ArticleService articleService;
 
     private final RedisRateLimiter rateLimiter;
@@ -65,6 +70,8 @@ public class UserPostService {
      */
     @Transactional
     public Long create(UserPrincipal user, PostCreateRequest request) {
+        requireCanPublish(user);
+
         rateLimiter.checkOrThrow(
                 "rl:post:user:" + user.getId(),
                 blogProperties.getRateLimit().getPostPerHour(),
@@ -84,6 +91,29 @@ public class UserPostService {
         Long id = articleService.create(save, user.getId());
         log.info("{} 发帖：articleId={}", user.toLogTag(), id);
         return id;
+    }
+
+    /**
+     * 拦住不能发内容的人（禁言 / 封禁）。
+     *
+     * <p><b>为什么每次都查一次库，而不是从 {@link UserPrincipal} 里读</b>
+     * {@code UserPrincipal} 是登录那一刻的快照，里面根本没有状态字段。
+     * 就算给它补一个，禁言之后那个值也不会自动变 —— 得等用户重新登录，
+     * 等于"禁言要等到下次登录才算数"。发帖不是高频操作，
+     * 一次主键查询换"禁言立刻生效"，值。
+     *
+     * @param user 当前登录用户
+     * @throws BusinessException 用户不存在，或已被禁言 / 封禁
+     */
+    private void requireCanPublish(UserPrincipal user) {
+        AppUser author = appUserMapper.selectById(user.getId());
+        if (author == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "用户不存在");
+        }
+        if (!AppUserStatus.canPublish(author.getStatus())) {
+            throw new BusinessException(ResultCode.FORBIDDEN,
+                    "账号" + AppUserStatus.describe(author.getStatus()) + "，不能发布内容");
+        }
     }
 
     /**

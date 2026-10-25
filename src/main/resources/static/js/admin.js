@@ -334,9 +334,16 @@
                 ? '（当前显示前 ' + data.records.length + ' 篇）' : '')
             + '</p>';
 
-        // 事件用委托绑到容器上，而不是给每一行的按钮单独绑。
-        // 理由：列表是 innerHTML 重建的，逐个绑会随着重绘反复增加监听器
-        box.addEventListener('click', onTableClick);
+        // 事件用委托绑到容器上，而不是给每一行的按钮单独绑 ——
+        // 列表是 innerHTML 重建的，逐个绑会随着重绘反复增加监听器。
+        //
+        // 但委托本身也只能绑一次：这个方法每次刷新都会跑，
+        // 不判断的话，点一次按钮会触发 N 次请求（N = 这个页面刷新过几次），
+        // 表现为"删一篇文章，提示了三次已删除"。
+        if (!box.dataset.delegated) {
+            box.addEventListener('click', onTableClick);
+            box.dataset.delegated = '1';
+        }
     }
 
     function articleRow(item) {
@@ -366,6 +373,13 @@
                     '<a class="btn btn-sm" href="/client/main/'
                     + encodeURIComponent(item.slug)
                     + '" target="_blank" rel="noopener">查看</a>')
+            // 发布 / 转草稿直接在列表里切，不用进编辑页走一圈。
+            // 为了点一个"发布"先把整篇正文读出来再提交，容易手滑
+            +      (isDraft
+                    ? '<button class="btn btn-sm btn-primary" data-toggle="' + item.id
+                      + '" data-status="1">发布</button>'
+                    : '<button class="btn btn-sm" data-toggle="' + item.id
+                      + '" data-status="0">转草稿</button>')
             + '    <a class="btn btn-sm" href="/admin/work/articles/' + item.id + '/edit">编辑</a>'
             + '    <button class="btn btn-sm btn-danger" data-delete="' + item.id + '"'
             + '            data-title="' + escapeHtml(item.title) + '">删除</button>'
@@ -373,7 +387,45 @@
             + '</tr>';
     }
 
+    /**
+     * 列表页直接发布或转回草稿。
+     *
+     * 只提交状态，不带正文 —— 走的是那个"只改一个字段"的 PATCH 接口。
+     */
+    async function toggleArticleStatus(btn) {
+        const id = btn.dataset.toggle;
+        const status = Number(btn.dataset.status);
+        const word = (status === 1) ? '发布' : '转回草稿';
+
+        if (!confirm('确定' + word + '这篇吗？')) {
+            return;
+        }
+
+        btn.disabled = true;
+        try {
+            await api('/admin/api/articles/' + id + '/status', {
+                method: 'PATCH',
+                body: { status: status }
+            });
+            toast('已' + word, 'ok');
+
+            // 重新拉一次列表，并且带上当前筛选条件：
+            // 刚发布的文章可能已经不属于当前筛选了（比如正在看"草稿"）
+            loadAdminArticles($('#articleTableBox'), getQuery('status'));
+        } catch (e) {
+            toast(word + '失败：' + e.message, 'error');
+            btn.disabled = false;
+        }
+    }
+
     async function onTableClick(event) {
+        // ---- 发布 / 转草稿 ----
+        const toggleBtn = event.target.closest('[data-toggle]');
+        if (toggleBtn) {
+            await toggleArticleStatus(toggleBtn);
+            return;
+        }
+
         const btn = event.target.closest('[data-delete]');
         if (!btn) {
             return;
@@ -719,7 +771,69 @@
         }
     }
 
-    /** 渲染表格 + 绑定封禁/解封 + 绑定翻页 */
+    /**
+     * 三个状态的文案和确认提示。
+     *
+     * 集中放一处：原来这些字符串散在按钮渲染和确认框两处，
+     * 加"禁言"这一档时就得两个地方对着改，很容易漏一边。
+     */
+    const STATUS_WORD = { 0: '恢复', 1: '封禁', 2: '禁言' };
+
+    const STATUS_TIP = {
+        0: '',
+        1: '\n\n封禁后他会立刻掉线，并且在解封前无法再登录。',
+        2: '\n\n禁言后他还能登录、能浏览，但发不了帖也评不了论。'
+    };
+
+    /** 状态徽章：0 正常 / 1 已封禁 / 2 已禁言 */
+    function statusBadge(status) {
+        if (status === 1) {
+            return '<span class="badge badge-danger">已封禁</span>';
+        }
+        if (status === 2) {
+            return '<span class="badge badge-warn">已禁言</span>';
+        }
+        return '<span class="badge badge-ok">正常</span>';
+    }
+
+    /**
+     * 这一行该显示哪几个操作按钮。
+     *
+     * 只给"当前状态的反向操作"：如果一排四个按钮里有三个点了没反应，
+     * 那不叫功能丰富，那叫让人猜。
+     *
+     * 删除永远在最后，而且永远是红色 —— 它是这一排里唯一一个
+     * 不可逆的操作（虽然是软删除，但界面上用户不知道）。
+     */
+    function actionButtons(u, status) {
+        const id = u.id;
+        const html = [];
+
+        // 恢复：封禁或禁言状态下才有
+        if (status !== 0) {
+            html.push('<button class="btn btn-sm" data-uid="' + id
+                + '" data-status="0">恢复</button>');
+        }
+
+        // 禁言：正常和封禁状态下都可以设
+        if (status !== 2) {
+            html.push('<button class="btn btn-sm" data-uid="' + id + '" data-status="2"'
+                + ' title="能登录、能浏览，但发不了帖也评不了论">禁言</button>');
+        }
+
+        // 封禁：正常和禁言状态下都可以设
+        if (status !== 1) {
+            html.push('<button class="btn btn-sm btn-danger" data-uid="' + id + '" data-status="1"'
+                + ' title="立刻踢下线，且无法再登录">封禁</button>');
+        }
+
+        html.push('<button class="btn btn-sm btn-danger" data-del="' + id + '"'
+            + ' data-name="' + escapeHtml(u.username) + '">删除</button>');
+
+        return html.join('');
+    }
+
+    /** 渲染表格 + 绑定操作 + 绑定翻页 */
     function renderUsers(box, data) {
         const records = (data && data.records) || [];
         if (records.length === 0) {
@@ -728,21 +842,15 @@
         }
 
         const rows = records.map(function (u) {
-            const banned = (u.status === 1);
-            const badge = banned
-                ? '<span class="badge badge-danger">已封禁</span>'
-                : '<span class="badge badge-ok">正常</span>';
-            const action = banned
-                ? '<button class="btn btn-sm" data-uid="' + u.id + '" data-status="0">解封</button>'
-                : '<button class="btn btn-sm btn-danger" data-uid="' + u.id + '" data-status="1">封禁</button>';
+            const status = Number(u.status) || 0;
 
             return ''
                 + '<tr>'
                 + '  <td>' + escapeHtml(u.username) + '</td>'
                 + '  <td>' + escapeHtml(u.nickname || '—') + '</td>'
-                + '  <td>' + badge + '</td>'
+                + '  <td>' + statusBadge(status) + '</td>'
                 + '  <td>' + escapeHtml(formatTime(u.createdAt)) + '</td>'
-                + '  <td class="col-actions">' + action + '</td>'
+                + '  <td class="col-actions">' + actionButtons(u, status) + '</td>'
                 + '</tr>';
         }).join('');
 
@@ -760,17 +868,15 @@
             + '</div>'
             + pagerHtml(data);
 
-        // ---- 封禁 / 解封 ----
+        // ---- 改状态：封禁 / 禁言 / 恢复 ----
         box.querySelectorAll('[data-uid]').forEach(function (btn) {
             btn.addEventListener('click', async function () {
                 const status = Number(btn.dataset.status);
                 const uid = btn.dataset.uid;
-                const word = (status === 1) ? '封禁' : '解封';
+                const word = STATUS_WORD[status] || '修改';
 
-                const tip = (status === 1)
-                    ? '\n\n封禁后他会立刻掉线，并且在解封前无法再登录。'
-                    : '';
-                if (!confirm('确定' + word + '这个用户吗？' + tip)) {
+                if (!confirm('确定把这个人设为「' + word + '」吗？'
+                    + (STATUS_TIP[status] || ''))) {
                     return;
                 }
 
@@ -784,6 +890,34 @@
                     await loadUsers(box, (data && data.current) || 1);
                 } catch (e) {
                     toast(word + '失败：' + e.message, 'error');
+                    btn.disabled = false;
+                }
+            });
+        });
+
+        // ---- 删除（软删除）----
+        box.querySelectorAll('[data-del]').forEach(function (btn) {
+            btn.addEventListener('click', async function () {
+                const uid = btn.dataset.del;
+                const name = btn.dataset.name || '这个用户';
+
+                // 把"删了会发生什么"直接写在确认框里，而不是只问一句"确定吗"。
+                // 用户最容易怕的就是"我的文章会不会一起没了"，
+                // 这个疑虑要在点下去之前回答掉
+                if (!confirm('确定删除「' + name + '」吗？\n\n'
+                    + '· 他发过的文章和评论都会保留，不会跟着消失\n'
+                    + '· 数据库里只是打了个删除标记，需要时可以恢复\n'
+                    + '· 这个用户名之后不能再被注册')) {
+                    return;
+                }
+
+                btn.disabled = true;
+                try {
+                    await api('/admin/api/users/' + uid, { method: 'DELETE' });
+                    toast('已删除', 'ok');
+                    await loadUsers(box, (data && data.current) || 1);
+                } catch (e) {
+                    toast('删除失败：' + e.message, 'error');
                     btn.disabled = false;
                 }
             });
@@ -834,22 +968,32 @@
     }
 
     function renderStats(box, stats) {
+        const published = Number(stats.publishedArticles) || 0;
+        const draft = Number(stats.draftArticles) || 0;
+
         box.innerHTML = ''
+            // ---- 第一排：四个总量 ----
             + '<div class="stat-grid">'
-            +   statCard('已发布', stats.publishedArticles, '篇')
-            +   statCard('草稿', stats.draftArticles, '篇')
+            +   statCard('已发布', published, '篇')
+            +   statCard('草稿', draft, '篇')
             +   statCard('总浏览量', stats.totalViews, '次')
             +   statCard('总点赞数', stats.totalLikes, '个')
             + '</div>'
 
-            + '<div class="card">'
-            + '  <div class="card-title">浏览量最高的文章</div>'
-            +    rankList(stats.topViewed, 'viewCount', '次浏览')
-            + '</div>'
-
-            + '<div class="card">'
-            + '  <div class="card-title">点赞最多的文章</div>'
-            +    rankList(stats.topLiked, 'likeCount', '个赞')
+            // ---- 第二排：环形图 + 两个条形排行 ----
+            + '<div class="stat-row">'
+            + '  <div class="card">'
+            + '    <div class="card-title">发布状态</div>'
+            +      donut(published, draft)
+            + '  </div>'
+            + '  <div class="card">'
+            + '    <div class="card-title">浏览量排行</div>'
+            +      barRank(stats.topViewed, 'viewCount', '次')
+            + '  </div>'
+            + '  <div class="card">'
+            + '    <div class="card-title">点赞排行</div>'
+            +      barRank(stats.topLiked, 'likeCount', '个')
+            + '  </div>'
             + '</div>'
 
             + '<p class="text-faint text-sm mt-2">'
@@ -857,23 +1001,80 @@
             + '</p>';
     }
 
-    function rankList(items, valueField, unit) {
+    /**
+     * 环形图：已发布和草稿的比例。
+     *
+     * 用 SVG 的 stroke-dasharray 画，不引图表库 ——
+     * 后台就这一张饼图，为它拉一个几十 KB 的依赖不值。
+     *
+     * 原理：圆周长 2πr，把整段虚线设成"实线长 + 空白长"，
+     * 实线占多少，圆环就画多少。
+     */
+    function donut(published, draft) {
+        const total = published + draft;
+        if (total === 0) {
+            return '<div class="empty">还没有文章</div>';
+        }
+
+        const R = 52;
+        const C = 2 * Math.PI * R;              // 周长 ≈ 326.7
+        const ratio = published / total;
+        const dash = (ratio * C).toFixed(1);
+
+        return ''
+            + '<div class="donut-wrap">'
+            + '  <svg class="donut" viewBox="0 0 120 120" role="img"'
+            +       ' aria-label="已发布 ' + published + ' 篇，草稿 ' + draft + ' 篇">'
+            + '    <circle class="donut-bg" cx="60" cy="60" r="' + R + '"/>'
+            + '    <circle class="donut-fg" cx="60" cy="60" r="' + R + '"'
+            +           ' stroke-dasharray="' + dash + ' ' + C.toFixed(1) + '"/>'
+            + '  </svg>'
+            + '  <div class="donut-center">'
+            + '    <b>' + Math.round(ratio * 100) + '%</b>'
+            + '    <span>已发布</span>'
+            + '  </div>'
+            + '</div>'
+            + '<ul class="legend">'
+            + '  <li><i class="legend-dot legend-on"></i>已发布 ' + published + ' 篇</li>'
+            + '  <li><i class="legend-dot legend-off"></i>草稿 ' + draft + ' 篇</li>'
+            + '</ul>';
+    }
+
+    /**
+     * 条形排行。
+     *
+     * 条长以榜首为 100% 基准，不用绝对值 ——
+     * 一篇 1000 次浏览的和一篇 5 次的并排，后者会细成一条看不见的线。
+     * 最低给 2%，保证"有数据"这件事本身看得出来。
+     */
+    function barRank(items, valueField, unit) {
         if (!items || items.length === 0) {
             return '<div class="empty">还没有数据</div>';
         }
 
-        // 只有一篇还排什么榜，直接把列表显示出来就好
-        return '<ul class="rank-list">'
+        const max = items.reduce(function (m, item) {
+            return Math.max(m, Number(item[valueField]) || 0);
+        }, 0) || 1;
+
+        return '<ul class="bar-rank">'
             + items.map(function (item, index) {
+                const v = Number(item[valueField]) || 0;
+                const pct = Math.max((v / max) * 100, 2);
+
                 return ''
                     + '<li>'
-                    + '  <span class="rank-no' + (index < 3 ? ' top' : '') + '">'
+                    + '  <div class="bar-head">'
+                    + '    <span class="bar-no' + (index < 3 ? ' top' : '') + '">'
                     +      (index + 1) + '</span>'
-                    + '  <a class="rank-title" href="/client/main/'
+                    + '    <a class="bar-title" href="/client/main/'
                     +      encodeURIComponent(item.slug)
                     +      '" target="_blank" rel="noopener">'
                     +      escapeHtml(item.title) + '</a>'
-                    + '  <span class="rank-value">' + item[valueField] + ' ' + unit + '</span>'
+                    + '    <span class="bar-value">' + v + ' ' + unit + '</span>'
+                    + '  </div>'
+                    + '  <div class="bar-track">'
+                    + '    <i class="bar-fill" style="width:' + pct.toFixed(1) + '%"></i>'
+                    + '  </div>'
                     + '</li>';
             }).join('')
             + '</ul>';

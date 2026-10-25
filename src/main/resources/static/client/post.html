@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>写文章 · WN</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <meta name="description" content="写一篇新帖子，也可以管理自己发过的。">
+    <meta name="theme-color" content="#0B0A12">
     <link rel="stylesheet" href="/css/common.css">
     <link rel="stylesheet" href="/css/main.css">
 </head>
 
-<!-- data-page="post" → user.js 里跑 initPostPage()。
-     本页不引 main.js：那是阅读页的（列表/详情/音乐栏），
-     写作页用不到，少加载一个文件 -->
 <body data-page="post">
 
 <div class="page-main">
@@ -23,21 +23,20 @@
             </a>
             <nav class="topbar-links">
                 <a href="/client/main">全部文章</a>
-                <a href="/client">返回首页</a>
+                <a href="/client">首页</a>
                 <span class="topbar-user-box" id="userBox"></span>
             </nav>
         </div>
     </header>
 
     <main class="container">
-
         <div class="page-head">
             <h1>写文章</h1>
             <p>正文支持 Markdown：<code># 标题</code>、<code>**粗体**</code>、<code>`代码`</code> 都能用</p>
-            <div class="head-divider"><i></i><i></i><i></i></div>
+            <div class="head-divider" aria-hidden="true"><i></i><i></i><i></i></div>
         </div>
 
-        <!-- 未登录时，user.js 会把这里换成"请先登录"的提示 -->
+        <!-- 未登录时整块被 user.js 换成"发帖需要先登录"的挡板 -->
         <div id="postFormBox">
             <div class="card post-card">
                 <form id="postForm" autocomplete="off">
@@ -51,9 +50,7 @@
                         <label for="postContent">正文</label>
                         <textarea class="input post-content" id="postContent"
                                   placeholder="开始写吧…" required></textarea>
-                        <p class="hint">
-                            发布后所有人可见。想改的话，目前只能删掉重发。
-                        </p>
+                        <p class="hint">发布后所有人可见。想改的话，目前只能删掉重发。</p>
                     </div>
 
                     <div class="post-actions">
@@ -64,12 +61,10 @@
             </div>
         </div>
 
-        <!-- 我发过的帖子 -->
         <section class="my-posts">
             <h2 class="my-posts-title">我发过的</h2>
             <div id="myPostsBox"></div>
         </section>
-
     </main>
 
     <footer class="site-foot container">

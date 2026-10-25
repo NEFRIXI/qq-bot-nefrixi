@@ -1,29 +1,33 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="paper">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>用户管理 · WN 后台</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <meta name="description" content="WN 后台用户管理。">
+    <meta name="robots" content="noindex,nofollow">
     <link rel="stylesheet" href="/css/common.css">
     <link rel="stylesheet" href="/css/admin.css">
 </head>
 
-<!-- data-page="users" → admin.js 里跑 initUsersPage() -->
 <body data-page="users">
 
-<!-- 顶栏由 admin.js 按 NAV_LINKS 渲染，四个页面共用一份 -->
 <header class="admin-bar" id="adminBar"></header>
 
 <main class="container-wide admin-main">
     <div class="admin-head">
         <div>
             <h1>用户管理</h1>
-            <p class="sub">前台注册的用户。封禁后该用户立刻掉线，且在解封前无法再登录</p>
+            <p class="sub">
+                封禁会立刻让他掉线；禁言可以登录、可以看，但发不了帖也评不了论。
+                删除只是打标记：文章和评论都还在，用户名也不会再被注册。
+            </p>
         </div>
         <button class="btn btn-sm" id="refreshBtn">刷新</button>
     </div>
 
-    <!-- 表格由 admin.js 填进来 -->
+    <!-- 表格与翻页由 admin.js 填 -->
     <div id="usersBox"></div>
 </main>
 

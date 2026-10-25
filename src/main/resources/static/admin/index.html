@@ -1,30 +1,32 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="paper">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>概览 · WN 后台</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <meta name="description" content="WN 后台概览：文章、浏览、点赞。">
+    <meta name="robots" content="noindex,nofollow">
     <link rel="stylesheet" href="/css/common.css">
     <link rel="stylesheet" href="/css/admin.css">
 </head>
 
 <body data-page="home">
 
-<!-- 顶部栏的内容由 admin.js 填进来。
-     为什么不直接写在这：六个后台页面都要有它，
-     写六遍的话，以后加一个导航项要改六个文件 -->
+<!-- 顶栏由 admin.js 渲染（导航项带当前页高亮），这里留空壳 -->
 <header class="admin-bar" id="adminBar"></header>
 
 <main class="container-wide admin-main">
     <div class="admin-head">
         <div>
             <h1>概览</h1>
-            <p class="sub">站点当前的情况</p>
+            <p class="sub">站点的现在：文章、浏览、点赞</p>
         </div>
+        <!-- 概览页上唯一的主操作 -->
         <a class="btn btn-primary" href="/admin/work/articles/new">写新文章</a>
     </div>
 
-    <!-- 数字和快捷入口由 admin.js 填 -->
+    <!-- 数字卡与"被看得最多的一篇"由 admin.js 填 -->
     <div id="homeBox"></div>
 </main>
 

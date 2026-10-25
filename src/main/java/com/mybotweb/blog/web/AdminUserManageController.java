@@ -8,6 +8,7 @@ import com.mybotweb.common.result.Result;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -61,6 +62,25 @@ public class AdminUserManageController {
     public Result<Void> updateStatus(@PathVariable("id") Long id,
                                      @Valid @RequestBody UserStatusRequest request) {
         userManageService.updateStatus(id, request.getStatus());
+        return Result.success();
+    }
+
+    /**
+     * 删除用户（软删除）。
+     *
+     * <p>只打标记，不执行 {@code DELETE} —— 他发过的文章和评论都还在，
+     * 作者还查得到，误删了也能恢复。理由写在
+     * {@code AdminUserManageService#softDelete} 上。
+     *
+     * <p><b>刻意不提供 force 参数</b>：想要物理删除，那是一次需要单独评估的
+     * 数据操作，应该由人直接在库里做，而不是后台一个按钮点下去就没了。
+     *
+     * @param id 用户 id
+     * @return 空结果
+     */
+    @DeleteMapping("/{id}")
+    public Result<Void> delete(@PathVariable("id") Long id) {
+        userManageService.softDelete(id);
         return Result.success();
     }
 }

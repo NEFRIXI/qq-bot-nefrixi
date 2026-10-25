@@ -1,6 +1,7 @@
 package com.mybotweb.blog.web;
 
 import com.mybotweb.blog.dto.ArticleSaveRequest;
+import com.mybotweb.blog.dto.ArticleStatusRequest;
 import com.mybotweb.blog.service.ArticleService;
 import com.mybotweb.blog.vo.ArticleDetailVo;
 import com.mybotweb.blog.vo.ArticleListItemVo;
@@ -11,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -111,6 +113,22 @@ public class AdminArticleController {
                                @Valid @RequestBody ArticleSaveRequest request) {
         articleService.update(id, request);
         return Result.success("已保存", null);
+    }
+
+    /**
+     * 只切换发布状态（草稿 ⇄ 已发布）。
+     *
+     * <p>给列表页的"发布 / 转草稿"按钮用。用 PATCH 而不是 PUT：
+     * 这个请求只改一个字段，语义上就是局部更新。
+     *
+     * @param id      文章 id
+     * @param request 目标状态
+     */
+    @PatchMapping("/{id}/status")
+    public Result<Void> updateStatus(@PathVariable Long id,
+                                     @Valid @RequestBody ArticleStatusRequest request) {
+        articleService.updateStatus(id, request.getStatus());
+        return Result.success("状态已更新", null);
     }
 
     /**

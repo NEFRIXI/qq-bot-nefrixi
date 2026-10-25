@@ -49,12 +49,24 @@ public class AppUser {
     private String nickname;
 
     /**
-     * 状态，取值见 {@link AppUserStatus}：0 = 正常，1 = 已封禁。
+     * 状态，取值见 {@link AppUserStatus}：
+     * 0 = 正常，1 = 已封禁，2 = 禁言。
      *
-     * <p>封禁是<b>可逆</b>的：管理员把 status 改回 0 就恢复了。
-     * 所以没有做成"删除"，也没有删除时间字段。
+     * <p>三档都是<b>可逆</b>的：管理员改回 0 就恢复。
+     * "删除"不走这个字段 —— 见下面的 {@link #deletedAt}，
+     * 因为"暂时不让他说话"和"这条记录不该再出现"是两件事。
      */
     private Integer status;
+
+    /**
+     * 软删除时间，{@code null} 表示没删。
+     *
+     * <p>删除用户不是 {@code DELETE}，而是往这里写一个时间戳，
+     * 所有查询都加 {@code deleted_at IS NULL} 过滤。
+     * 这样他发过的文章和评论不会变成找不到作者的孤儿，
+     * 误删了也能恢复。
+     */
+    private LocalDateTime deletedAt;
 
     /** 注册时间 */
     private LocalDateTime createdAt;

@@ -1,181 +1,362 @@
 /* ============================================================
-   公共样式 —— 所有页面共用
+   common.css —— 所有页面共用的地基
    ------------------------------------------------------------
-   这个文件只放三样东西：
-     ① 变量（颜色、间距、圆角）—— 换主题只改这里
-     ② reset 和基础排版
-     ③ 公用构件（按钮、卡片、表单、表格、标签、提示）
+   这个文件只有三件事：
+     ① token（颜色 / 间距 / 圆角 / 字体）—— 换皮肤只改这里
+     ② reset 与基础排版
+     ③ 构件（按钮、卡片、表单、表格、徽章、提示、加载、空态）
 
-   页面专属的样式放在各自的 css 里（main.css / admin.css）。
+   页面自己的样式放 main.css（夜）/ admin.css（纸）。
+   设计决定与禁令写在项目根的 DESIGN.md，这里不复述理由。
 
-   【配色从哪来】
-   欢迎页（client/index.html）的配色不是随手定的，它由一串 108 位
-   随机字符串推导出来，其中两条线索是两个色相：
-       324°（品红，来自串里最大的数字 9）
-       288°（紫，来自紧随其后的数字 8）
-   本文件把这两个值定义成变量，前台页面沿用它们，
-   所以新页面和欢迎页是同一个调子，不是两套东西。
+   【为什么同一个站有两套底色】
+   前台是"夜里翻的一本同人志"，后台是"白天摊在桌上的校样本"。
+   明暗跟着使用场景走，不跟着品类走 —— 详见 DESIGN.md §一。
    ============================================================ */
 
 /* ============================================================
-   1. 变量
+   1. Token
    ============================================================ */
 :root {
-    /* ---- 主题色 ---- */
-    --hue-warm: 324;            /* 品红 */
-    --hue-cool: 288;            /* 紫 */
+    /* ---- 夜：前台默认 ----
+       底色不取纯黑：照片压暗后纯黑会把樱花的暖调吸走。
+       用一个偏紫的近黑，和欢迎页那张背景照同族。 */
+    --bg: #0B0A12;
+    --bg-soft: #12101C;
+    --surface: #171422;
+    --surface-hover: #1F1B2E;
 
-    --accent: hsl(324, 68%, 62%);
-    --accent-dim: hsl(324, 50%, 48%);
-    --accent-soft: hsla(324, 68%, 62%, 0.14);
-    --accent-alt: hsl(288, 60%, 66%);
+    /* 主文字不取 #FFF：纯白贴在夜景照旁边会发青，暖白才像纸上的油墨 */
+    --paper: #F7F2E9;
+    --text: var(--paper);
+    --text-dim: rgba(247, 242, 233, 0.62);
+    /* 0.42 在 #0B0A12 上只有 3.7:1 —— 过不了小字的 4.5:1。
+       这个值带的是日期、浏览数、占位符这类"要读的字"，
+       不是装饰，所以抬到 0.55（实测 5.9:1）。 */
+    --text-faint: rgba(247, 242, 233, 0.55);
+
+    --line: rgba(247, 242, 233, 0.14);
+    --line-strong: rgba(247, 242, 233, 0.32);
+
+    /* ---- 强调只有两支：青绿与樱粉 ----
+       这是双色套印的物理限制，不是配色偏好。第三种强调色一进来，
+       整站就会散成"什么颜色都有一点"的常见深色主题。 */
+    --mint: #3BE0C4;
+    --pink: #FF7FAE;
+    --mint-soft: rgba(59, 224, 196, 0.14);
+    --pink-soft: rgba(255, 127, 174, 0.14);
 
     /* ---- 状态色 ---- */
-    --ok: hsl(150, 55%, 52%);
-    --warn: hsl(38, 80%, 60%);
-    --danger: hsl(355, 68%, 60%);
+    --ok: #4FE08A;
+    --warn: #FFC24B;
+    --danger: #FF6B85;
+    --ok-soft: rgba(79, 224, 138, 0.13);
+    --warn-soft: rgba(255, 194, 75, 0.13);
+    --danger-soft: rgba(255, 107, 133, 0.13);
 
-    /* ---- 深色主题（前台默认）---- */
-    --bg: #1a1620;
-    --bg-soft: #211c28;
-    --surface: #2a2433;
-    --surface-hover: #332c3d;
-    --border: rgba(255, 255, 255, 0.10);
-    --border-strong: rgba(255, 255, 255, 0.22);
+    /* ---- 尺寸 ----
+       间距只取 4 的倍数：13px、27px 这种"看起来差不多"的值
+       会让整页失去节奏，且以后没法用一套栅格思考。 */
+    --r-sm: 4px;
+    --r: 8px;
+    --r-lg: 14px;
+    --line-w: 1px;
+    --line-w-bold: 1.5px;
 
-    --text: rgba(255, 255, 255, 0.92);
-    --text-dim: rgba(255, 255, 255, 0.58);
-    --text-faint: rgba(255, 255, 255, 0.34);
+    --sp-1: 4px;
+    --sp-2: 8px;
+    --sp-3: 12px;
+    --sp-4: 16px;
+    --sp-6: 24px;
+    --sp-8: 32px;
+    --sp-12: 48px;
 
-    /* ---- 尺寸 ---- */
-    --radius: 10px;
-    --radius-lg: 16px;
-    --gap: 16px;
-    --gap-lg: 28px;
-    --page-max: 860px;          /* 正文阅读宽度：超过这个宽度眼睛会疲劳 */
-    --admin-max: 1180px;        /* 后台是表格和表单，可以宽一些 */
+    /* 正文行宽。超过约 72 个字符，眼睛回行会丢行 */
+    --measure: 68ch;
+    --page-max: 820px;
+    --admin-max: 1180px;
 
-    /* ---- 阴影 ---- */
-    --shadow: 0 2px 12px rgba(0, 0, 0, 0.28);
-    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.38);
+    /* ---- 深度 ----
+       偏移 + 柔化。DESIGN.md 禁止零模糊的硬投影，
+       唯一例外是贴纸的套印错位（见 .sticker）。 */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow: 0 6px 20px -8px rgba(0, 0, 0, 0.55);
+    --shadow-lg: 0 20px 48px -20px rgba(0, 0, 0, 0.7);
 
-    /* ---- 字体 ---- */
-    /* 只列系统自带的字体：项目要求零外部依赖，不引 CDN 字体。
-
-       【顺序和欢迎页保持一致】字体列表是按顺序命中的：
-       把 "Segoe UI" 排在 "PingFang SC" 前面，在同时装了这两者的
-       机器上就会先命中前者，渲染出来和欢迎页不是同一套字。
-       欢迎页（client/index.html）是这套设计的样板，其它页面跟着它排。 */
-    --font: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei",
-            "Segoe UI", "Hiragino Sans GB", sans-serif;
-    --font-mono: "Cascadia Mono", Consolas, "Courier New", monospace;
+    /* ---- 字体 ----
+       零外部依赖：只用系统字体，不引 CDN、不自托管字体文件。
+       展示层的个性靠字重、字距、斜切与描边拿，不靠换字体（DESIGN.md §二）。 */
+    --font-sans: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB",
+                 "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    --font-serif: "Songti SC", "Songti TC", "Noto Serif SC",
+                  "Source Han Serif SC", "SimSun", serif;
+    --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono",
+                 Consolas, "Courier New", monospace;
 
     /* ---- 页面背景 ----
-       这里只声明一个空值，具体画面由各主题自己填：
-         main.css   → 深色光晕 + 细噪点（前台）
-         admin.css  → none（后台是浅色，叠深色光晕会脏）
-
-       做成变量的原因就是这一条：同一个 body 规则要服务两套主题，
-       写死背景图的话后台也得跟着改。 */
+       这里只声明空值，具体画面由各主题自己填：
+         main.css  → 夜里的网点与光晕
+         admin.css → 纸纹
+       做成变量的原因：同一条 body 规则要服务两套主题。 */
     --bg-image: none;
 }
 
 /* ============================================================
-   2. Reset 和基础排版
+   1b. 纸：后台
+   ------------------------------------------------------------
+   只覆盖颜色，不覆盖尺度 —— 字体尺度、圆角、线宽属于同一个印厂，
+   两档必须一致，否则前后台会变成两个站。
+
+   【为什么强调色要换一个亮度】
+   #3BE0C4 压在白纸上只有 1.9:1，当文字用读不清。
+   换成深一档的青绿才有 4.6:1。这是 token 分工存在的理由。 */
+html[data-theme="paper"] {
+    --bg: #F7F2E9;
+    --bg-soft: #F1EBE0;
+    --surface: #FFFDF8;
+    --surface-hover: #FBF6EC;
+
+    --paper: #16121F;
+    --text: #16121F;
+    --text-dim: #57506B;
+    --text-faint: #6E6782;
+
+    --line: rgba(22, 18, 31, 0.16);
+    --line-strong: rgba(22, 18, 31, 0.42);
+
+    --mint: #0B8A78;
+    --pink: #C23468;
+    --mint-soft: rgba(11, 138, 120, 0.10);
+    --pink-soft: rgba(194, 52, 104, 0.09);
+
+    --ok: #1D7A4C;
+    --warn: #8A5B08;
+    --danger: #B3213C;
+    --ok-soft: rgba(29, 122, 76, 0.10);
+    --warn-soft: rgba(151, 101, 11, 0.12);
+    --danger-soft: rgba(179, 33, 60, 0.09);
+
+    --shadow-sm: 0 1px 2px rgba(22, 18, 31, 0.08);
+    --shadow: 0 6px 20px -10px rgba(22, 18, 31, 0.18);
+    --shadow-lg: 0 20px 48px -24px rgba(22, 18, 31, 0.22);
+}
+
+/* ============================================================
+   2. Reset 与基础排版
    ============================================================ */
-* {
+*,
+*::before,
+*::after {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
 html {
-    /* 锚点跳转时平滑滚动，比"啪"地跳过去舒服 */
+    -webkit-text-size-adjust: 100%;
     scroll-behavior: smooth;
+    background: var(--bg);
 }
 
 body {
-    font-family: var(--font);
-    font-size: 15px;
-    line-height: 1.7;
-    color: var(--text);
-    /* 底色 + 可选背景图。
-       background-attachment: fixed 让背景不随内容滚动 ——
-       长文章往下翻的时候，背景"钉"在那里，不会出现一道一道的接缝 */
+    min-height: 100%;
     background-color: var(--bg);
-    background-image: var(--bg-image, none);
+    background-image: var(--bg-image);
     background-repeat: no-repeat;
     background-attachment: fixed;
     background-size: cover;
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.75;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* 标题：紧字距 + 重字重。
+   中文没有意大利体，密度对比只能靠"压紧 + 加重"。
+   −0.03em 是安全下限，再紧笔画会互相咬住。 */
+h1, h2, h3, h4 {
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: -0.03em;
+    text-wrap: balance;
+}
+
+h1 { font-size: clamp(1.75rem, 4vw, 2.5rem); }
+h2 { font-size: clamp(1.35rem, 2.6vw, 1.75rem); }
+h3 { font-size: 1.15rem; letter-spacing: -0.015em; }
+h4 { font-size: 1rem; }
+
+p {
+    text-wrap: pretty;
 }
 
 a {
-    color: var(--accent);
-    text-decoration: none;
-    transition: color .2s ease;
+    color: inherit;
+    text-decoration-thickness: 1px;
+    /* 下划线别贴字：offset 拉开才有排版感，而不是浏览器默认的紧贴 */
+    text-underline-offset: 0.28em;
+    transition: color 0.18s ease;
 }
 
-a:hover {
-    color: var(--accent-alt);
-}
-
-img {
+img,
+svg,
+video {
+    display: block;
     max-width: 100%;
-    height: auto;
 }
 
-/* 键盘 Tab 聚焦时的轮廓。用 :focus-visible 是为了鼠标点击不出现轮廓，
-   只有键盘操作才显示 —— 无障碍和观感兼顾 */
+button,
+input,
+select,
+textarea {
+    font: inherit;
+    color: inherit;
+}
+
+button {
+    /* 连点时选中文字会出蓝底，按钮文字不该被选中 */
+    user-select: none;
+}
+
+code,
+kbd,
+samp {
+    font-family: var(--font-mono);
+    font-size: 0.92em;
+}
+
+hr {
+    border: 0;
+    border-top: var(--line-w) solid var(--line);
+}
+
+/* ---- 浏览器自己的表面 ----
+   选区、滚动条、焦点环：不画就归浏览器默认，
+   它们会在配色体系上撕一道口子。这是最便宜、也最常被跳过的一道
+   "这页是被人做过"的信号。 */
+::selection {
+    background: var(--mint);
+    color: #0B0A12;
+}
+
+html[data-theme="paper"] ::selection {
+    background: rgba(11, 138, 120, 0.22);
+    color: var(--paper);
+}
+
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+}
+
+*::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: var(--text-faint);
+    background-clip: content-box;
+}
+
+/* 焦点：强调色描边 + 外扩。
+   不用 outline: none —— 键盘用户会掉进"看不见焦点"的黑洞。 */
 :focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--mint);
     outline-offset: 2px;
+    border-radius: var(--r-sm);
+}
+
+button,
+a,
+input,
+select,
+textarea {
+    -webkit-tap-highlight-color: transparent;
 }
 
 /* ============================================================
-   3. 布局容器
+   3. 布局构件
    ============================================================ */
 .container {
+    width: 100%;
     max-width: var(--page-max);
     margin: 0 auto;
-    padding: 0 20px;
+    padding: 0 var(--sp-6);
 }
 
 .container-wide {
+    width: 100%;
     max-width: var(--admin-max);
     margin: 0 auto;
-    padding: 0 20px;
+    padding: 0 var(--sp-6);
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+}
+
+.row-between {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+}
+
+.row-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-3);
 }
 
 /* ============================================================
    4. 按钮
    ------------------------------------------------------------
-   用 <button class="btn"> 或 <a class="btn"> 都行。
-   两种都支持是刻意的：跳转用 <a>、提交用 <button>，
-   语义不同，但外观应该一致。
-   ============================================================ */
+   形状语言：矩形 + 小圆角。胶囊留给"贴纸"（入口、徽章），
+   两者不在同一页冒充对方。 */
 .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    padding: 9px 18px;
-    font-family: inherit;
-    font-size: 14px;
-    line-height: 1.4;
+    min-height: 38px;
+    padding: 0 var(--sp-4);
+    border: var(--line-w-bold) solid var(--line-strong);
+    border-radius: var(--r-sm);
+    background: transparent;
     color: var(--text);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    white-space: nowrap;
     cursor: pointer;
-    transition: background .2s ease, border-color .2s ease, transform .1s ease;
-    /* 按钮文字不要被选中：连点时选中蓝底很难看 */
-    user-select: none;
+    transition: background-color 0.18s ease,
+                border-color 0.18s ease,
+                color 0.18s ease,
+                transform 0.18s ease;
 }
 
 .btn:hover {
     background: var(--surface-hover);
-    border-color: var(--border-strong);
+    border-color: var(--text-faint);
     color: var(--text);
 }
 
@@ -183,117 +364,219 @@ img {
     transform: translateY(1px);
 }
 
-/* 主要操作：一屏里只应该有一个 */
+/* 主按钮：平涂色块 + 深色字。
+   不用渐变按钮 —— 这个世界的强调是套印的平涂色，渐变会把套印感冲掉。 */
 .btn-primary {
-    color: #fff;
-    background: var(--accent);
-    border-color: var(--accent);
+    background: var(--mint);
+    border-color: var(--mint);
+    color: #0B0A12;
+    font-weight: 700;
 }
 
 .btn-primary:hover {
-    background: var(--accent-dim);
-    border-color: var(--accent-dim);
-    color: #fff;
+    background: #62ebd3;
+    border-color: #62ebd3;
+    color: #0B0A12;
 }
 
-/* 危险操作（删除）：红字描边，不填色 —— 填色的红按钮太容易误点 */
+/* 纸档的主按钮翻成墨黑实心：青绿实心在白纸上会显得像"警告" */
+html[data-theme="paper"] .btn-primary {
+    background: #16121F;
+    border-color: #16121F;
+    color: #F7F2E9;
+}
+
+html[data-theme="paper"] .btn-primary:hover {
+    background: #2B2540;
+    border-color: #2B2540;
+    color: #F7F2E9;
+}
+
+/* 危险操作：红字描边，不填色。
+   填色的红按钮在列表里太容易被误点。 */
 .btn-danger {
     color: var(--danger);
-    border-color: hsla(355, 68%, 60%, 0.4);
-    background: transparent;
-}
-
-.btn-danger:hover {
-    color: #fff;
-    background: var(--danger);
     border-color: var(--danger);
 }
 
+.btn-danger:hover {
+    background: var(--danger-soft);
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+/* 低干扰按钮：取消 / 返回 / 次要动作 */
+.btn-ghost {
+    border-color: transparent;
+    color: var(--text-dim);
+}
+
+.btn-ghost:hover {
+    background: transparent;
+    border-color: var(--line);
+    color: var(--text);
+}
+
 .btn-sm {
-    padding: 5px 12px;
-    font-size: 13px;
+    min-height: 30px;
+    padding: 0 var(--sp-3);
+    font-size: 0.82rem;
 }
 
 .btn:disabled,
-.btn.is-disabled {
+.btn.is-disabled,
+.btn[disabled] {
     opacity: 0.45;
     cursor: not-allowed;
-    pointer-events: none;
+    transform: none;
+}
+
+/* 按钮里的图标跟着字号走，不写死像素 */
+.btn .ic {
+    width: 1.05em;
+    height: 1.05em;
+    flex: 0 0 auto;
 }
 
 /* ============================================================
    5. 卡片
-   ============================================================ */
+   ------------------------------------------------------------
+   整圈硬边 + 极轻的底。不加彩色侧边条（DESIGN.md 禁令 3）。
+   卡片里不嵌卡片 —— 需要分组就用细线。 */
 .card {
-    background: var(--bg-soft);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: 22px 24px;
+    padding: var(--sp-6);
+    background: var(--surface);
+    border: var(--line-w-bold) solid var(--line);
+    border-radius: var(--r);
+    box-shadow: var(--shadow-sm);
 }
 
 .card + .card {
-    margin-top: var(--gap);
+    margin-top: var(--sp-4);
 }
 
 .card-title {
-    margin-bottom: 14px;
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-4);
+    padding-bottom: var(--sp-3);
+    border-bottom: var(--line-w) solid var(--line);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+}
+
+/* 贴纸：胶囊 + 1–2px 的套印错位。
+   全站唯一允许出现硬偏移阴影的地方（DESIGN.md 禁令 4 的例外），
+   因为它模仿的是"两色套印没对齐"，不是"立体投影"。 */
+.sticker {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 12px;
+    border: var(--line-w-bold) solid currentColor;
+    border-radius: 999px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
 }
 
 /* ============================================================
    6. 表单
    ============================================================ */
 .field {
-    margin-bottom: 18px;
+    margin-bottom: var(--sp-4);
 }
 
-.field label {
+.field > label {
     display: block;
     margin-bottom: 6px;
-    font-size: 13px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
     color: var(--text-dim);
-}
-
-.field .hint {
-    margin-top: 6px;
-    font-size: 12px;
-    color: var(--text-faint);
 }
 
 .input,
 .textarea,
 .select {
     width: 100%;
-    padding: 9px 12px;
-    font-family: inherit;
-    font-size: 14px;
+    padding: 10px var(--sp-3);
+    background: var(--bg-soft);
+    border: var(--line-w-bold) solid var(--line);
+    border-radius: var(--r-sm);
     color: var(--text);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    transition: border-color .2s ease;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+html[data-theme="paper"] .input,
+html[data-theme="paper"] .textarea,
+html[data-theme="paper"] .select {
+    background: #FFFFFF;
+}
+
+/* 占位文字也要过 4.5:1：它是"要读的字"，不是装饰 */
+.input::placeholder,
+.textarea::placeholder {
+    color: var(--text-faint);
+}
+
+.input:hover,
+.textarea:hover,
+.select:hover {
+    border-color: var(--line-strong);
 }
 
 .input:focus,
 .textarea:focus,
 .select:focus {
-    border-color: var(--accent);
     outline: none;
+    border-color: var(--mint);
+    box-shadow: 0 0 0 3px var(--mint-soft);
 }
 
 .textarea {
     min-height: 120px;
-    line-height: 1.7;
-    /* 正文编辑要能纵向拉伸 —— 写长文时手会需要更大的框 */
     resize: vertical;
 }
 
-/* Markdown 编辑器专用的等宽字体 */
 .textarea-mono {
     font-family: var(--font-mono);
-    font-size: 13.5px;
+    font-size: 0.9rem;
+    line-height: 1.7;
+}
+
+.select {
+    appearance: none;
+    /* 自绘下拉箭头：系统箭头在深色底上是黑的，等于没有 */
+    background-image:
+        linear-gradient(45deg, transparent 50%, currentColor 50%),
+        linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position:
+        calc(100% - 18px) calc(50% + 1px),
+        calc(100% - 12px) calc(50% + 1px);
+    background-size: 6px 6px, 6px 6px;
+    background-repeat: no-repeat;
+    padding-right: 36px;
+}
+
+.field .hint,
+.hint {
+    margin-top: 6px;
+    font-size: 0.78rem;
+    line-height: 1.65;
+    color: var(--text-faint);
+}
+
+input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--mint);
 }
 
 /* ============================================================
@@ -302,160 +585,258 @@ img {
 .table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 14px;
+    font-size: 0.9rem;
 }
 
 .table th,
 .table td {
-    padding: 10px 12px;
+    padding: 11px var(--sp-3);
     text-align: left;
-    border-bottom: 1px solid var(--border);
+    border-bottom: var(--line-w) solid var(--line);
+    vertical-align: middle;
 }
 
 .table th {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-dim);
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--text-faint);
     white-space: nowrap;
 }
 
-.table tbody tr:hover {
-    background: var(--surface);
+.table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.table tbody tr:hover td {
+    background: var(--surface-hover);
+}
+
+/* 数字列：等宽 + 右对齐，一列数字的个位才能对齐 */
+.table .col-num {
+    font-family: var(--font-mono);
+    font-size: 0.84rem;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 
 /* ============================================================
-   8. 标签（状态徽章）
+   8. 徽章
    ============================================================ */
 .badge {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
     padding: 2px 9px;
-    font-size: 12px;
-    line-height: 1.6;
+    border: var(--line-w) solid currentColor;
     border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    line-height: 1.7;
     white-space: nowrap;
 }
 
-.badge-published {
+.badge-published,
+.badge-ok {
     color: var(--ok);
-    background: hsla(150, 55%, 52%, 0.14);
+    background: var(--ok-soft);
 }
 
-.badge-draft {
+.badge-draft,
+.badge-warn {
     color: var(--warn);
-    background: hsla(38, 80%, 60%, 0.14);
+    background: var(--warn-soft);
+}
+
+.badge-danger {
+    color: var(--danger);
+    background: var(--danger-soft);
 }
 
 /* ============================================================
-   9. 提示条（toast）
-   ------------------------------------------------------------
-   由 js/common.js 里的 toast() 动态创建，不需要在 HTML 里写。
+   9. 加载 / 空态 / 错误
    ============================================================ */
-.toast-box {
-    position: fixed;
-    top: 24px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 9999;
+.loading {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 10px;
-    /* 容器本身不挡鼠标：它铺在页面上方，挡了就没法点底下的东西 */
-    pointer-events: none;
+    justify-content: center;
+    gap: var(--sp-3);
+    padding: var(--sp-12) var(--sp-4);
+    color: var(--text-dim);
+    font-size: 0.9rem;
 }
 
-.toast {
-    padding: 10px 20px;
-    font-size: 14px;
-    color: #fff;
-    background: rgba(30, 26, 36, 0.96);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-lg);
-    animation: toast-in .24s ease;
-}
-
-.toast.is-out {
-    animation: toast-out .24s ease forwards;
-}
-
-.toast-ok {
-    border-color: hsla(150, 55%, 52%, 0.6);
-}
-
-.toast-error {
-    border-color: hsla(355, 68%, 60%, 0.6);
-}
-
-@keyframes toast-in {
-    from { opacity: 0; transform: translateY(-12px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes toast-out {
-    from { opacity: 1; transform: translateY(0); }
-    to   { opacity: 0; transform: translateY(-12px); }
-}
-
-/* ============================================================
-   10. 加载态和空状态
-   ============================================================ */
-.loading,
-.empty {
-    padding: 48px 20px;
-    text-align: center;
-    color: var(--text-faint);
-    font-size: 14px;
-}
-
-/* 转圈：用 CSS 画，不引图标库 */
+/* 转圈：一条渐隐的圆锥弧，比 12 条 border 更轻，也不会在深底上发灰 */
 .spinner {
     display: inline-block;
-    width: 16px;
-    height: 16px;
-    margin-right: 8px;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
     vertical-align: -3px;
-    border: 2px solid var(--border-strong);
-    border-top-color: var(--accent);
     border-radius: 50%;
-    animation: spin .7s linear infinite;
+    background: conic-gradient(from 90deg, transparent, var(--mint));
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
+    mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
+    animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
 
+.empty {
+    padding: var(--sp-12) var(--sp-4);
+    text-align: center;
+    color: var(--text-faint);
+    font-size: 0.9rem;
+    line-height: 2;
+}
+
+.empty .btn {
+    margin-top: var(--sp-2);
+}
+
 /* ============================================================
-   11. 通用小工具
+   10. 提示条（toast）
+   ------------------------------------------------------------
+   由 js 里的 toast() 动态创建，HTML 里不用写。
+   定位在右上：中上方会压住很多页面的标题区。 */
+.toast-box {
+    position: fixed;
+    /* 让开顶栏：顶栏是 sticky 的，高 57~58px，
+       提示压在上面会盖住"退出"按钮，正要退出的人反而点不到 */
+    top: 72px;
+    right: var(--sp-4);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    /* 容器不挡鼠标：它铺在页面之上，挡了就点不到底下的东西 */
+    pointer-events: none;
+}
+
+.toast {
+    max-width: 340px;
+    padding: 10px var(--sp-4);
+    background: var(--surface);
+    border: var(--line-w-bold) solid var(--line-strong);
+    border-left: 3px solid var(--mint);
+    border-radius: var(--r-sm);
+    box-shadow: var(--shadow);
+    font-size: 0.85rem;
+    line-height: 1.65;
+    animation: toastIn 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: opacity 0.26s ease, transform 0.26s ease;
+}
+
+/* 左侧 3px 状态色条不是装饰：它是"成功/失败/中性"在一眼之内
+   唯一的区分点 —— 纯看文字要读两秒才分辨得出。 */
+.toast-ok { border-left-color: var(--ok); }
+.toast-error { border-left-color: var(--danger); }
+.toast-info { border-left-color: var(--mint); }
+
+.toast.is-out {
+    opacity: 0;
+    transform: translateX(12px);
+}
+
+@keyframes toastIn {
+    from { opacity: 0; transform: translateX(16px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+@media (max-width: 640px) {
+    .toast-box {
+        top: auto;
+        bottom: var(--sp-4);
+        left: var(--sp-4);
+        right: var(--sp-4);
+    }
+
+    .toast {
+        max-width: none;
+    }
+}
+
+/* ============================================================
+   11. 翻页
    ============================================================ */
+.pager {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-4);
+    padding: var(--sp-8) 0;
+    color: var(--text-faint);
+    font-size: 0.85rem;
+}
+
+.pager-info {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   12. 工具类
+   ------------------------------------------------------------
+   只留真正跨页复用的。随手加 .mt-1/.mt-3 会让间距失去节奏。 */
 .text-dim { color: var(--text-dim); }
 .text-faint { color: var(--text-faint); }
-.text-sm { font-size: 13px; }
-.text-mono { font-family: var(--font-mono); }
-
-.row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.row-between {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-}
-
-.row-wrap {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px;
+.text-sm { font-size: 0.82rem; }
+.text-mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
 }
 
 .mt-0 { margin-top: 0; }
-.mt-1 { margin-top: 10px; }
-.mt-2 { margin-top: 20px; }
-.mt-3 { margin-top: 32px; }
+.mt-1 { margin-top: var(--sp-3); }
+.mt-2 { margin-top: var(--sp-6); }
+.mt-3 { margin-top: var(--sp-8); }
 
 .hidden { display: none !important; }
+
+/* 图标基线：所有内联 SVG 走这个类，保证线宽与尺寸一致。
+   不用 emoji / Unicode 字符当图标 —— 它们的字重、基线、颜色都不受控。 */
+.ic {
+    width: 1.15em;
+    height: 1.15em;
+    flex: 0 0 auto;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ============================================================
+   13. 减少动态效果
+   ------------------------------------------------------------
+   系统开了这个选项的人（前庭功能敏感）要的是"不动"，
+   不是"动得慢一点"。所以是关掉，不是减速。 */
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
+}

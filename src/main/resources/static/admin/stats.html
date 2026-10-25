@@ -1,9 +1,12 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="paper">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>访问统计 · WN 后台</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <meta name="description" content="WN 后台访问统计。">
+    <meta name="robots" content="noindex,nofollow">
     <link rel="stylesheet" href="/css/common.css">
     <link rel="stylesheet" href="/css/admin.css">
 </head>
@@ -16,10 +19,11 @@
     <div class="admin-head">
         <div>
             <h1>访问统计</h1>
-            <p class="sub">文章数量、浏览量和点赞数</p>
+            <p class="sub">总量、发布状态，以及被读得最多的篇目</p>
         </div>
     </div>
 
+    <!-- 四张数字卡 + 状态环 + 两张排行 + 简表，全部由 admin.js 填 -->
     <div id="statsBox"></div>
 </main>
 

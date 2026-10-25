@@ -155,8 +155,20 @@
         // 直接拼进 innerHTML 会让文章标题里的 <script> 真的执行
         box.innerHTML = data.records.map(function (item) {
             const url = '/client/main/' + encodeURIComponent(item.slug);
+
+            // 左列放"月-日 / 年"，不放序号。
+            // 【为什么不放序号】序号在翻页时会从头来过（前端不知道后端每页几条），
+            // 第二页的第 1 篇显示成 01 等于在骗人；日期是这篇自己的事实，翻到哪页都对。
+            const date = formatDate(item.publishedAt);
+            const day = date.length >= 10 ? date.slice(5) : date;
+            const year = date.length >= 10 ? date.slice(0, 4) : '';
+
             return ''
                 + '<article class="post-card">'
+                + '  <div class="post-no">'
+                + '    <b>' + escapeHtml(day) + '</b>'
+                + (year ? '<span>' + escapeHtml(year) + '</span>' : '')
+                + '  </div>'
                 + '  <a class="post-title" href="' + url + '">'
                 +        escapeHtml(item.title)
                 + '  </a>'
@@ -164,8 +176,6 @@
                     ? '<p class="post-summary">' + escapeHtml(item.summary) + '</p>'
                     : '')
                 + '  <div class="post-meta">'
-                + '    <span>' + formatDate(item.publishedAt) + '</span>'
-                + '    <span class="dot">·</span>'
                 + '    <span>' + item.viewCount + ' 次浏览</span>'
                 + '    <span class="dot">·</span>'
                 + '    <span>' + item.likeCount + ' 赞</span>'
@@ -248,7 +258,7 @@
         box.innerHTML = ''
             + '<div class="pager">'
             + '  <button class="btn btn-sm" id="prevBtn"' + (hasPrev ? '' : ' disabled') + '>上一页</button>'
-            + '  <span>第 ' + data.current + ' / ' + data.pages + ' 页 · 共 ' + data.total + ' 篇</span>'
+            + '  <span class="pager-info">第 ' + data.current + ' / ' + data.pages + ' 页 · 共 ' + data.total + ' 篇</span>'
             + '  <button class="btn btn-sm" id="nextBtn"' + (hasNext ? '' : ' disabled') + '>下一页</button>'
             + '</div>';
 
@@ -630,6 +640,48 @@
     }
 
     /**
+     * 同步底部控制条：歌名 + 播放/暂停图标。
+     *
+     * 绑在 audio 的 play / pause 事件上，不在每个播放、暂停的地方手动调。
+     * 理由：浏览器保证这两个事件和 player.paused 一致，
+     * 而"点了暂停"和"播完了自动停"走的是不同代码路径，
+     * 手动调总会漏掉某一条。
+     */
+    function syncCtrl() {
+        const box = $('#railCtrl');
+        const nameEl = $('#railCtrlName');
+        const btn = $('#railCtrlBtn');
+        const player = $('#audioPlayer');
+        if (!box || !nameEl || !btn || !player) {
+            return;
+        }
+
+        const song = currentPlayingId === null ? null : MUSIC_LIST[currentPlayingId];
+        if (!song) {
+            box.hidden = true;
+            return;
+        }
+
+        box.hidden = false;
+        nameEl.textContent = song.title || '未命名';
+
+        const running = !player.paused;
+
+        // 【为什么用自绘 SVG 而不是 ▶ / ❚❚ 字符】
+        // 这两个 Unicode 字符在不同字体（Segoe UI Symbol / Apple Symbols /
+        // Noto）里的大小、基线、字重全都不一样，同一个按钮在 Windows 和
+        // Mac 上会长得不像同一个东西。画出来的图标才受控。
+        const ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true">'
+            + '<path d="M8 5v14l11-7z"/></svg>';
+        const ICON_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true">'
+            + '<rect x="7" y="5" width="3.6" height="14" rx="1"/>'
+            + '<rect x="13.4" y="5" width="3.6" height="14" rx="1"/></svg>';
+
+        btn.innerHTML = running ? ICON_PAUSE : ICON_PLAY;
+        btn.setAttribute('aria-label', running ? '暂停' : '继续播放');
+    }
+
+    /**
      * 一首放完，自动接下一首。
      */
     function playNext() {
@@ -644,6 +696,9 @@
         if (next >= MUSIC_LIST.length) {
             currentPlayingId = null;
             markPlaying(-1);
+            // 最后一首放完不会触发 pause 事件（它是自然 ended），
+            // 所以这里得手动收掉底部控制条
+            syncCtrl();
             return;
         }
 
@@ -652,8 +707,29 @@
 
     function bindPlayerEvents() {
         const player = $('#audioPlayer');
-        if (player) {
-            player.addEventListener('ended', playNext);
+        if (!player) {
+            return;
+        }
+
+        player.addEventListener('ended', playNext);
+
+        // 播放状态一变就同步控制条。点卡片、点控制条按钮、自动切下一首，
+        // 最终都会落到这两个事件上，不用在每个入口手动调
+        player.addEventListener('play', syncCtrl);
+        player.addEventListener('pause', syncCtrl);
+
+        // 控制条上的播放/暂停按钮。
+        // 它只切状态，不改 src —— 改了 src 就等于从头播，
+        // "继续播放"会变成"重播"
+        const btn = $('#railCtrlBtn');
+        if (btn) {
+            btn.addEventListener('click', function () {
+                if (player.paused) {
+                    player.play().catch(onPlayFailed);
+                } else {
+                    player.pause();
+                }
+            });
         }
     }
 })();
